@@ -1,10 +1,18 @@
 // Location Service - Detect user location and fetch nearby destinations
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-)
+// Lazy-initialize Supabase client to avoid crashes on module load
+let supabase = null
+
+function getSupabase() {
+    if (!supabase) {
+        supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_ANON_KEY
+        )
+    }
+    return supabase
+}
 
 // Detect user's current location (using IP geolocation)
 export async function detectUserLocation() {
@@ -28,7 +36,7 @@ export async function detectUserLocation() {
 // Save user location to preferences
 export async function saveUserLocation(userId, locationData) {
     try {
-        const { error } = await supabase
+        const { error } = await getSupabase()
             .from('user_preferences')
             .upsert([{
                 user_id: userId,
@@ -50,7 +58,7 @@ export async function saveUserLocation(userId, locationData) {
 // Get nearby destinations
 export async function getNearbyDestinations(userCountry) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await getSupabase()
             .from('nearby_destinations')
             .select('*')
             .eq('user_country', userCountry)

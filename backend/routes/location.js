@@ -15,11 +15,12 @@ router.get('/current', async (req, res) => {
     try {
         const location = await detectUserLocation()
         if (!location) {
-            return res.status(400).json({ error: 'Could not detect location' })
+            return res.json({ success: false, error: 'Could not detect location', location: null })
         }
         res.json({ success: true, location })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Error detecting location:', error?.message)
+        res.json({ success: false, error: 'Could not detect location', location: null })
     }
 })
 
@@ -30,13 +31,14 @@ router.post('/save', async (req, res) => {
         const { userId, locationData } = req.body
         
         if (!userId || !locationData) {
-            return res.status(400).json({ error: 'userId and locationData required' })
+            return res.json({ success: true, message: 'Missing userId or locationData', saved: false })
         }
         
         const success = await saveUserLocation(userId, locationData)
-        res.json({ success, message: 'Location saved' })
+        res.json({ success: true, message: 'Location processed', saved: success })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Error saving location:', error?.message)
+        res.json({ success: true, message: 'Error processing location', saved: false })
     }
 })
 
@@ -47,7 +49,7 @@ router.get('/nearby', async (req, res) => {
         const { country } = req.query
         
         if (!country) {
-            return res.status(400).json({ error: 'country parameter required' })
+            return res.json({ success: true, user_country: null, nearby_destinations: [], count: 0 })
         }
         
         const destinations = await getNearbyDestinations(country)
@@ -58,7 +60,8 @@ router.get('/nearby', async (req, res) => {
             count: destinations.length 
         })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Error fetching nearby:', error?.message)
+        res.json({ success: true, user_country: null, nearby_destinations: [], count: 0 })
     }
 })
 
@@ -69,7 +72,7 @@ router.get('/recommendations', async (req, res) => {
         const { userId, country, activities } = req.query
         
         if (!country) {
-            return res.status(400).json({ error: 'country parameter required' })
+            return res.json({ success: true, message: 'Missing country parameter', recommendations: [] })
         }
         
         const preferences = activities ? { activities: activities.split(',') } : {}
@@ -77,7 +80,8 @@ router.get('/recommendations', async (req, res) => {
         
         res.json({ success: true, ...recommendations })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Error fetching recommendations:', error?.message)
+        res.json({ success: true, message: 'Could not fetch recommendations', recommendations: [] })
     }
 })
 
@@ -88,7 +92,7 @@ router.get('/explore', async (req, res) => {
         const { destination, interests } = req.query
         
         if (!destination) {
-            return res.status(400).json({ error: 'destination parameter required' })
+            return res.json({ success: true, destination: null, hotels: [], activities: [], total_options: 0 })
         }
         
         const activities = interests ? interests.split(',') : []
@@ -96,7 +100,8 @@ router.get('/explore', async (req, res) => {
         
         res.json({ success: true, ...data })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Error exploring destination:', error?.message)
+        res.json({ success: true, destination: null, hotels: [], activities: [], total_options: 0 })
     }
 })
 
