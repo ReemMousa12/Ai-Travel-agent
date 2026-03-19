@@ -2,7 +2,7 @@
 
 -- Table: user_preferences
 -- Store user's travel style, budget, and interests
-CREATE TABLE user_preferences (
+CREATE TABLE IF NOT EXISTS user_preferences (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id TEXT UNIQUE NOT NULL,
     current_location TEXT,
@@ -21,7 +21,7 @@ CREATE TABLE user_preferences (
 
 -- Table: user_profiles
 -- Store user information
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id TEXT UNIQUE NOT NULL,
     name TEXT,
@@ -36,7 +36,7 @@ CREATE TABLE user_profiles (
 
 -- Table: trips
 -- Store planned trips
-CREATE TABLE trips (
+CREATE TABLE IF NOT EXISTS trips (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE trips (
 
 -- Table: saved_items
 -- Save flights, hotels, activities, restaurants
-CREATE TABLE saved_items (
+CREATE TABLE IF NOT EXISTS saved_items (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id TEXT NOT NULL,
     trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
@@ -74,7 +74,7 @@ CREATE TABLE saved_items (
 
 -- Table: chat_history
 -- Store conversation history
-CREATE TABLE chat_history (
+CREATE TABLE IF NOT EXISTS chat_history (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id TEXT NOT NULL,
     trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
@@ -86,7 +86,7 @@ CREATE TABLE chat_history (
 
 -- Table: nearby_destinations
 -- Cache nearby countries/cities for quick lookup
-CREATE TABLE nearby_destinations (
+CREATE TABLE IF NOT EXISTS nearby_destinations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_country TEXT NOT NULL,
     nearby_country TEXT NOT NULL,
@@ -98,17 +98,17 @@ CREATE TABLE nearby_destinations (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
-CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
-CREATE INDEX idx_trips_user_id ON trips(user_id);
-CREATE INDEX idx_trips_destination_country ON trips(destination_country);
-CREATE INDEX idx_saved_items_user_id ON saved_items(user_id);
-CREATE INDEX idx_saved_items_trip_id ON saved_items(trip_id);
-CREATE INDEX idx_saved_items_country ON saved_items(country);
-CREATE INDEX idx_saved_items_item_type ON saved_items(item_type);
-CREATE INDEX idx_chat_history_user_id ON chat_history(user_id);
-CREATE INDEX idx_chat_history_trip_id ON chat_history(trip_id);
-CREATE INDEX idx_nearby_destinations_user_country ON nearby_destinations(user_country);
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_trips_user_id ON trips(user_id);
+CREATE INDEX IF NOT EXISTS idx_trips_destination_country ON trips(destination_country);
+CREATE INDEX IF NOT EXISTS idx_saved_items_user_id ON saved_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_items_trip_id ON saved_items(trip_id);
+CREATE INDEX IF NOT EXISTS idx_saved_items_country ON saved_items(country);
+CREATE INDEX IF NOT EXISTS idx_saved_items_item_type ON saved_items(item_type);
+CREATE INDEX IF NOT EXISTS idx_chat_history_user_id ON chat_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_trip_id ON chat_history(trip_id);
+CREATE INDEX IF NOT EXISTS idx_nearby_destinations_user_country ON nearby_destinations(user_country);
 
 -- Enable Row Level Security
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
@@ -141,4 +141,5 @@ INSERT INTO nearby_destinations (user_country, nearby_country, distance_km, trav
 ('Germany', 'Czech Republic', 400, 3, 8.5, 'May-Sep', 'History, beer'),
 ('Australia', 'New Zealand', 2000, 3, 9.5, 'Dec-Feb', 'Adventure, nature'),
 ('Japan', 'South Korea', 1400, 3, 8.5, 'May-Oct', 'Culture, food'),
-('Brazil', 'Argentina', 1800, 3, 8.0, 'Nov-Mar', 'Cities, nature');
+('Brazil', 'Argentina', 1800, 3, 8.0, 'Nov-Mar', 'Cities, nature')
+ON CONFLICT DO NOTHING;
