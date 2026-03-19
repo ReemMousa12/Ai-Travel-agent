@@ -347,7 +347,7 @@ export default function LandingPage({ user, onNavigateToChat }: Props) {
                       <FavoriteButton
                         userId={user.id}
                         destination={dest.name}
-                        country={dest.name}
+                        country="EG"
                         imageUrl={dest.image}
                         rating={dest.rating}
                       />
@@ -421,7 +421,7 @@ export default function LandingPage({ user, onNavigateToChat }: Props) {
                       <FavoriteButton
                         userId={user.id}
                         destination={deal.name}
-                        country={deal.location}
+                        country="EG"
                         imageUrl={deal.image}
                         rating={deal.rating}
                         type="hotel"
