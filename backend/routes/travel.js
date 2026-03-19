@@ -6,18 +6,29 @@ import { getCurrentWeather, getLocation } from '../services/basic.js'
 
 const router = express.Router()
 
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY
-})
+// Initialize Groq client lazily
+let groq = null
+function getGroq() {
+    if (!groq && process.env.GROQ_API_KEY) {
+        groq = new Groq({
+            apiKey: process.env.GROQ_API_KEY
+        })
+    }
+    return groq
+}
 
 // GET /api/travel/weather?location=Paris
 router.get('/weather', async (req, res) => {
     try {
         const { location } = req.query
+        if (!location) {
+            return res.json({ success: true, weather: null, location: null })
+        }
         const result = await getCurrentWeather({ location })
-        res.json(JSON.parse(result))
+        res.json({ success: true, ...JSON.parse(result) })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Weather error:', error?.message)
+        res.json({ success: true, weather: null, location: null })
     }
 })
 
@@ -25,9 +36,10 @@ router.get('/weather', async (req, res) => {
 router.get('/location', async (req, res) => {
     try {
         const result = await getLocation()
-        res.json(JSON.parse(result))
+        res.json({ success: true, ...JSON.parse(result) })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Location error:', error?.message)
+        res.json({ success: true, location: null })
     }
 })
 
@@ -35,9 +47,10 @@ router.get('/location', async (req, res) => {
 router.post('/flights', async (req, res) => {
     try {
         const result = await searchFlights(req.body)
-        res.json(JSON.parse(result))
+        res.json({ success: true, ...JSON.parse(result) })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Flights error:', error?.message)
+        res.json({ success: true, flights: [], message: 'Could not search flights' })
     }
 })
 
@@ -45,9 +58,10 @@ router.post('/flights', async (req, res) => {
 router.post('/hotels', async (req, res) => {
     try {
         const result = await searchHotels(req.body)
-        res.json(JSON.parse(result))
+        res.json({ success: true, ...JSON.parse(result) })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Hotels error:', error?.message)
+        res.json({ success: true, hotels: [], message: 'Could not search hotels' })
     }
 })
 
@@ -55,9 +69,10 @@ router.post('/hotels', async (req, res) => {
 router.post('/activities', async (req, res) => {
     try {
         const result = await searchActivities(req.body)
-        res.json(JSON.parse(result))
+        res.json({ success: true, ...JSON.parse(result) })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Activities error:', error?.message)
+        res.json({ success: true, activities: [], message: 'Could not search activities' })
     }
 })
 
@@ -65,9 +80,10 @@ router.post('/activities', async (req, res) => {
 router.post('/restaurants', async (req, res) => {
     try {
         const result = await searchRestaurants(req.body)
-        res.json(JSON.parse(result))
+        res.json({ success: true, ...JSON.parse(result) })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error('Restaurants error:', error?.message)
+        res.json({ success: true, restaurants: [], message: 'Could not search restaurants' })
     }
 })
 
@@ -206,7 +222,7 @@ router.get('/trending', async (req, res) => {
                 const aiPrompt = `Provide 4 trending travel destinations within 500km of ${location}. These should be real, popular cities or tourist destinations. Return only valid JSON array:
 [{"name": "City, Country", "price": 150, "rating": 4.5, "desc": "Brief description"}]`
                 
-                const completion = await groq.chat.completions.create({
+                const completion = await getGroq()?.chat.completions.create({
                     messages: [{ role: 'user', content: aiPrompt }],
                     model: 'llama-3.3-70b-versatile',
                     temperature: 0.7,
@@ -238,7 +254,7 @@ router.get('/trending', async (req, res) => {
                 const aiPrompt = `Provide 4 real popular hotels near ${location} in JSON format. Return only valid JSON:
 [{"name": "Hotel Name", "location": "City, Country", "price": 120, "oldPrice": 180, "rating": 4.5, "reviews": 150}]`
                 
-                const completion = await groq.chat.completions.create({
+                const completion = await getGroq()?.chat.completions.create({
                     messages: [{ role: 'user', content: aiPrompt }],
                     model: 'llama-3.3-70b-versatile',
                     temperature: 0.7,
@@ -291,7 +307,7 @@ router.get('/trending', async (req, res) => {
             console.log('APIs failed, using AI fallback')
             const aiPrompt = `Provide 4 real trending destinations and 4 real hotel deals near ${location} in JSON format with structure: {"destinations": [{"name": "City, Country", "price": 150, "rating": 4.8, "desc": "description"}], "deals": [{"name": "Hotel Name", "location": "City, Country", "price": 120, "oldPrice": 180, "rating": 4.5, "reviews": 150}]}`
             
-            const completion = await groq.chat.completions.create({
+            const completion = await getGroq()?.chat.completions.create({
                 messages: [{ role: 'user', content: aiPrompt }],
                 model: 'llama-3.3-70b-versatile',
                 temperature: 0.7,
@@ -327,10 +343,10 @@ router.get('/trending', async (req, res) => {
             return res.json(aiData)
         }
         
-        res.json({ destinations, deals })
+        res.json({ success: true, destinations, deals })
     } catch (error) {
-        console.error('Trending error:', error)
-        res.status(500).json({ error: error.message })
+        console.error('Trending error:', error?.message)
+        res.json({ success: true, destinations: [], deals: [], message: 'Could not fetch trending' })
     }
 })
 
