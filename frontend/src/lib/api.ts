@@ -373,6 +373,13 @@ class ApiClient {
         keys: Object.keys(result)
       });
       
+      // Log backend debug info if available
+      if (result._debug && Array.isArray(result._debug)) {
+        console.log('=== BACKEND DEBUG INFO ===');
+        result._debug.forEach((msg, i) => console.log(`[${i}] ${msg}`));
+        console.log('=========================');
+      }
+      
       if (!response.ok) {
         console.warn('addFavorite failed:', response.status, result);
       }

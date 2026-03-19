@@ -51,10 +51,11 @@ router.post('/', async (req, res) => {
     try {
         const { userId, destination, country, type, reason, description, imageUrl, notes, priceEstimate, rating } = req.body
         
-        console.log('POST /api/favorites received:', { userId, destination, country, type })
+        const debug = [];
+        debug.push(`POST /api/favorites received: userId=${userId}, destination=${destination}, country=${country}, type=${type}`)
         
         if (!userId || !destination || !country) {
-            return res.json({ success: true, message: 'Missing required fields', favorite: null })
+            return res.json({ success: true, message: 'Missing required fields', favorite: null, _debug: debug })
         }
         
         const { data, error } = await getSupabase()
@@ -74,11 +75,14 @@ router.post('/', async (req, res) => {
             .select()
         
         if (error && error.message?.includes('relation')) {
+            debug.push('Error: Favorites table does not exist')
             console.log('Favorites table does not exist')
-            return res.json({ success: true, message: 'Table not yet initialized', favorite: null })
+            return res.json({ success: true, message: 'Table not yet initialized', favorite: null, _debug: debug })
         }
         
         if (error) {
+            const errorMsg = `Error adding favorite: ${error?.message} (code: ${error?.code})`
+            debug.push(errorMsg)
             console.error('Error adding favorite - Full error:', {
                 message: error?.message,
                 code: error?.code,
@@ -90,14 +94,17 @@ router.post('/', async (req, res) => {
                 success: true, 
                 message: 'Added to favorites', 
                 favorite: null,
-                note: 'Insert succeeded but could not fetch data'
+                note: 'Insert succeeded but could not fetch data',
+                _debug: debug
             })
         }
         
+        debug.push(`Insert successful: hasData=${!!data}, dataLength=${data?.length}`)
         console.log('Insert successful:', { hasData: !!data, dataLength: data?.length, firstItem: data?.[0] ? 'has data' : 'no data' })
         
         // If select didn't return data (RLS issue), fetch it separately
         if (!data || data.length === 0) {
+            debug.push('Select returned no data, fetching favorite separately...')
             console.log('Select returned no data, fetching favorite separately...')
             const { data: fetchedData, error: fetchError } = await getSupabase()
                 .from('favorites')
@@ -108,6 +115,7 @@ router.post('/', async (req, res) => {
                 .order('created_at', { ascending: false })
                 .limit(1)
             
+            debug.push(`Fallback fetch: hasFetchedData=${!!fetchedData}, fetchedDataLength=${fetchedData?.length}, fetchError=${fetchError?.message}, gotOne=${!!fetchedData?.[0]}`)
             console.log('Fallback fetch result:', { 
                 hasFetchedData: !!fetchedData, 
                 fetchedDataLength: fetchedData?.length,
@@ -118,14 +126,16 @@ router.post('/', async (req, res) => {
             return res.json({ 
                 success: true, 
                 favorite: fetchedData?.[0] || null, 
-                message: 'Added to favorites' 
+                message: 'Added to favorites',
+                _debug: debug
             })
         }
         
-        res.json({ success: true, favorite: data[0], message: 'Added to favorites' })
+        debug.push(`Returning favorite from initial select: ${data[0]?.id}`)
+        res.json({ success: true, favorite: data[0], message: 'Added to favorites', _debug: debug })
     } catch (error) {
         console.error('Error adding favorite:', error?.message)
-        res.json({ success: true, message: 'Error adding to favorites', favorite: null })
+        res.json({ success: true, message: 'Error adding to favorites', favorite: null, _debug: [`Exception: ${error?.message}`] })
     }
 })
 
