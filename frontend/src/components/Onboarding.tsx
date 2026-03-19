@@ -9,7 +9,7 @@ interface OnboardingProps {
   onComplete: () => void;
 }
 
-export default function Onboarding({ user, onComplete }: OnboardingProps) {
+export default function Onboarding({ user }: OnboardingProps) {
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState({
     name: user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),

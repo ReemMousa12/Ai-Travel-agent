@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Star, MapPin, DollarSign } from 'lucide-react';
+import { Star, MapPin } from 'lucide-react';
 
 interface Destination {
   id: number;
