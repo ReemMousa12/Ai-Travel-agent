@@ -5,24 +5,25 @@ import type { User } from '../lib/auth';
 import { apiClient } from '../lib/api';
 import type { WeatherData } from '../lib/api';
 import DestinationShowcase from './DestinationShowcase';
+import { FavoritesPanel } from './FavoritesPanel';
 
 interface DashboardProps {
-  user: User;
+  userId: string;
 }
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function Dashboard({ userId }: DashboardProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState('Loading...');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDashboard();
-  }, [user]);
+  }, [userId]);
 
   async function loadDashboard() {
     try {
       // Check for saved preferences (may be null if database not deployed)
-      const preferences = await apiClient.getUserPreferences(user.id);
+      const preferences = await apiClient.getUserPreferences(userId);
       
       let city = 'London';
       let locationSet = false;
@@ -42,7 +43,7 @@ export default function Dashboard({ user }: DashboardProps) {
             setLocation(`${locationData.city}, ${locationData.country}`);
             
             // Save detected location (if backend is working)
-            await apiClient.saveUserPreferences(user.id, {
+            await apiClient.saveUserPreferences(userId, {
               locationCity: locationData.city,
               locationCountry: locationData.country,
               locationLat: locationData.latitude,
@@ -73,7 +74,7 @@ export default function Dashboard({ user }: DashboardProps) {
   async function updateLocation() {
     setLoading(true);
     try {
-      await apiClient.deleteUserPreferences(user.id);
+      await apiClient.deleteUserPreferences(userId);
       await loadDashboard();
     } catch (error) {
       console.error('Update location error:', error);
@@ -225,7 +226,7 @@ export default function Dashboard({ user }: DashboardProps) {
         transition={{ delay: 0.6 }}
         className="mt-8"
       >
-        <DestinationShowcase />
+        <DestinationShowcase userId={userId} />
       </motion.div>
     </div>
   );

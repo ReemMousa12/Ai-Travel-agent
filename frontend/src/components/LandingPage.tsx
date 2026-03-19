@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '../lib/api';
 import type { User } from '../lib/auth';
 import type { Destination, Deal } from '../lib/api';
+import { FavoriteButton } from './FavoriteButton';
 
 interface Props {
   user: User;
@@ -331,7 +332,7 @@ export default function LandingPage({ user, onNavigateToChat }: Props) {
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{dest.name}</h3>
                     <p className="text-sm text-gray-600 mb-3">{dest.desc}</p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-1">
                         <span className="text-sm text-gray-600">From</span>
                         <span className="text-lg font-bold text-gray-900">${dest.price}</span>
@@ -341,6 +342,15 @@ export default function LandingPage({ user, onNavigateToChat }: Props) {
                         <Star size={14} className="fill-yellow-400 text-yellow-400" />
                         <span className="text-sm font-medium text-gray-900">{dest.rating}</span>
                       </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <FavoriteButton
+                        userId={user.id}
+                        destination={dest.name}
+                        country={dest.name}
+                        imageUrl={dest.image}
+                        rating={dest.rating}
+                      />
                     </div>
                   </div>
                 </div>
@@ -402,10 +412,20 @@ export default function LandingPage({ user, onNavigateToChat }: Props) {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">{deal.name}</h3>
                     <p className="text-sm text-gray-600 mb-3">{deal.location}</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-3">
                       <span className="text-gray-400 line-through text-sm">${deal.oldPrice}</span>
                       <span className="text-xl font-bold text-gray-900">${deal.price}</span>
                       <span className="text-sm text-gray-600">/night</span>
+                    </div>
+                    <div className="flex justify-end">
+                      <FavoriteButton
+                        userId={user.id}
+                        destination={deal.name}
+                        country={deal.location}
+                        imageUrl={deal.image}
+                        rating={deal.rating}
+                        type="hotel"
+                      />
                     </div>
                   </div>
                 </div>

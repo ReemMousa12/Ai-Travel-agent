@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Star, MapPin } from 'lucide-react';
+import { FavoriteButton } from './FavoriteButton';
 
 interface Destination {
   id: number;
@@ -50,7 +51,11 @@ const destinations: Destination[] = [
   }
 ];
 
-export default function DestinationShowcase() {
+interface DestinationShowcaseProps {
+  userId?: string;
+}
+
+export default function DestinationShowcase({ userId = 'guest' }: DestinationShowcaseProps) {
   return (
     <div className="py-12">
       <div className="mb-8">
@@ -82,9 +87,21 @@ export default function DestinationShowcase() {
 
               {/* Content */}
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin size={18} className="text-yellow-400" />
-                  <h3 className="text-3xl font-bold">{dest.name}, {dest.country}</h3>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={18} className="text-yellow-400" />
+                    <h3 className="text-3xl font-bold">{dest.name}, {dest.country}</h3>
+                  </div>
+                  {userId && userId !== 'guest' && (
+                    <FavoriteButton
+                      userId={userId}
+                      destination={dest.name}
+                      country={dest.country}
+                      imageUrl={dest.image}
+                      rating={dest.rating}
+                      className="bg-white/20 backdrop-blur-sm hover:bg-white/30"
+                    />
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2 mb-2">
