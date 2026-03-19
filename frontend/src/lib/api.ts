@@ -95,8 +95,64 @@ class ApiClient {
   }
 
   async getLocation(): Promise<LocationData> {
-    const response = await fetch(`${API_BASE_URL}/api/travel/location`);
-    return response.json();
+    try {
+      // Try browser Geolocation API first (most accurate)
+      if (navigator.geolocation) {
+        return new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              try {
+                // Reverse geocode coordinates to get city/country
+                const { latitude, longitude } = position.coords
+                const response = await fetch(
+                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                )
+                const data = await response.json()
+                
+                resolve({
+                  city: data.address?.city || data.address?.town || 'Your Location',
+                  country: data.address?.country_code?.toUpperCase() || 'EG',
+                  latitude,
+                  longitude,
+                  error: undefined
+                })
+              } catch (error) {
+                // Fallback to IP-based if reverse geocoding fails
+                this.fallbackLocationDetection().then(resolve)
+              }
+            },
+            async () => {
+              // User denied permission, fall back to IP-based
+              const result = await this.fallbackLocationDetection()
+              resolve(result)
+            },
+            { timeout: 5000, enableHighAccuracy: true }
+          )
+        })
+      }
+      
+      // No geolocation support, use IP-based
+      return this.fallbackLocationDetection()
+    } catch (error) {
+      console.error('Location error:', error)
+      return this.fallbackLocationDetection()
+    }
+  }
+
+  private async fallbackLocationDetection(): Promise<LocationData> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/travel/location`)
+      return response.json()
+    } catch (error) {
+      console.error('Fallback location error:', error)
+      return {
+        city: 'Cairo',
+        country: 'EG',
+        latitude: 30.0444,
+        longitude: 31.2357,
+        error: 'Could not detect location'
+      }
+    }
   }
 
   async getTrendingData(location: string): Promise<TrendingData> {
