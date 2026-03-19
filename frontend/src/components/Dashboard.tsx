@@ -21,28 +21,40 @@ export default function Dashboard({ user }: DashboardProps) {
 
   async function loadDashboard() {
     try {
-      // Check for saved preferences
+      // Check for saved preferences (may be null if database not deployed)
       const preferences = await apiClient.getUserPreferences(user.id);
       
       let city = 'London';
+      let locationSet = false;
+      
       if (preferences?.locationCity) {
         city = preferences.locationCity;
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
-      } else {
-        // Detect location
-        const locationData = await apiClient.getLocation();
-        if (!locationData.error && locationData.city) {
-          city = locationData.city;
-          setLocation(`${locationData.city}, ${locationData.country}`);
-          
-          // Save detected location
-          await apiClient.saveUserPreferences(user.id, {
-            locationCity: locationData.city,
-            locationCountry: locationData.country,
-            locationLat: locationData.latitude,
-            locationLon: locationData.longitude,
-          });
-        } else {
+        locationSet = true;
+      }
+      
+      // If no saved preferences, try to detect location
+      if (!locationSet) {
+        try {
+          const locationData = await apiClient.getLocation();
+          if (!locationData?.error && locationData?.city) {
+            city = locationData.city;
+            setLocation(`${locationData.city}, ${locationData.country}`);
+            
+            // Save detected location (if backend is working)
+            await apiClient.saveUserPreferences(user.id, {
+              locationCity: locationData.city,
+              locationCountry: locationData.country,
+              locationLat: locationData.latitude,
+              locationLon: locationData.longitude,
+            }).catch(() => {
+              console.warn('Could not save preferences - database may not be deployed');
+            });
+          } else {
+            setLocation('London, UK');
+          }
+        } catch (locationError) {
+          console.warn('Location detection failed:', locationError);
           setLocation('London, UK');
         }
       }

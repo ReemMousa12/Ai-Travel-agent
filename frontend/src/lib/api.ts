@@ -108,29 +108,52 @@ class ApiClient {
   }
 
   async getUserPreferences(userId: string): Promise<UserPreferences | null> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/database/user-preferences?userId=${userId}`
-    );
-    const result = await response.json();
-    return result.data;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/database/user-preferences?userId=${userId}`
+      );
+      if (!response.ok) {
+        console.warn(`Failed to fetch preferences: ${response.status}`);
+        return null;
+      }
+      const result = await response.json();
+      return result.data || null;
+    } catch (error) {
+      console.warn('Error fetching preferences:', error);
+      return null;
+    }
   }
 
   async saveUserPreferences(userId: string, preferences: UserPreferences) {
-    const response = await fetch(`${API_BASE_URL}/api/database/user-preferences`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, preferences }),
-    });
-    const result = await response.json();
-    return result.data;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/database/user-preferences`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, preferences }),
+      });
+      if (!response.ok) {
+        console.warn(`Failed to save preferences: ${response.status}`);
+        return null;
+      }
+      const result = await response.json();
+      return result.data || null;
+    } catch (error) {
+      console.warn('Error saving preferences:', error);
+      return null;
+    }
   }
 
   async deleteUserPreferences(userId: string) {
-    const response = await fetch(
-      `${API_BASE_URL}/api/database/user-preferences?userId=${userId}`,
-      { method: 'DELETE' }
-    );
-    return response.json();
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/database/user-preferences?userId=${userId}`,
+        { method: 'DELETE' }
+      );
+      return response.json();
+    } catch (error) {
+      console.warn('Error deleting preferences:', error);
+      return { success: false };
+    }
   }
 
   async getSavedTrips(userId: string): Promise<Trip[]> {
