@@ -376,7 +376,7 @@ class ApiClient {
       // Log backend debug info if available
       if (result._debug && Array.isArray(result._debug)) {
         console.log('=== BACKEND DEBUG INFO ===');
-        result._debug.forEach((msg, i) => console.log(`[${i}] ${msg}`));
+        result._debug.forEach((msg: string, i: number) => console.log(`[${i}] ${msg}`));
         console.log('=========================');
       }
       
