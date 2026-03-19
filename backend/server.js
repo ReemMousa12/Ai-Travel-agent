@@ -71,6 +71,12 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'AI Travel Agent Backend is running' })
 })
 
-app.listen(PORT, () => {
-    console.log(`🚀 Backend server running on http://localhost:${PORT}`)
-})
+// Export for Vercel serverless
+export default app
+
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Backend server running on http://localhost:${PORT}`)
+    })
+}
