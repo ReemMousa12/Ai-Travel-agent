@@ -366,7 +366,12 @@ class ApiClient {
       });
       
       const result = await response.json();
-      console.log('addFavorite response:', { status: response.status, result });
+      console.log('addFavorite response:', { 
+        status: response.status, 
+        result,
+        hasFavorite: !!result.favorite,
+        keys: Object.keys(result)
+      });
       
       if (!response.ok) {
         console.warn('addFavorite failed:', response.status, result);

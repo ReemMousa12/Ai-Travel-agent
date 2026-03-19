@@ -70,13 +70,11 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
           imageUrl,
           rating,
         });
-        console.log('Add result:', favorite);
+        console.log('Add result:', favorite, { isTruthy: !!favorite, type: typeof favorite });
         
-        // Consider it successful even if favorite object is null, as long as the insert didn't error
-        if (favorite || favorite === null) {
-          // Re-check if it was actually added
-          await checkIfFavorited();
-        }
+        // After add, re-check if it was actually added
+        console.log('Re-checking favorites after add...');
+        await checkIfFavorited();
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);

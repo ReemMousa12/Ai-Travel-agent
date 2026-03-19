@@ -51,6 +51,8 @@ router.post('/', async (req, res) => {
     try {
         const { userId, destination, country, type, reason, description, imageUrl, notes, priceEstimate, rating } = req.body
         
+        console.log('POST /api/favorites received:', { userId, destination, country, type })
+        
         if (!userId || !destination || !country) {
             return res.json({ success: true, message: 'Missing required fields', favorite: null })
         }
@@ -92,12 +94,12 @@ router.post('/', async (req, res) => {
             })
         }
         
-        console.log('Insert successful:', { hasData: !!data, dataLength: data?.length })
+        console.log('Insert successful:', { hasData: !!data, dataLength: data?.length, firstItem: data?.[0] ? 'has data' : 'no data' })
         
         // If select didn't return data (RLS issue), fetch it separately
         if (!data || data.length === 0) {
             console.log('Select returned no data, fetching favorite separately...')
-            const { data: fetchedData } = await getSupabase()
+            const { data: fetchedData, error: fetchError } = await getSupabase()
                 .from('favorites')
                 .select('*')
                 .eq('user_id', userId)
@@ -105,6 +107,13 @@ router.post('/', async (req, res) => {
                 .eq('country', country)
                 .order('created_at', { ascending: false })
                 .limit(1)
+            
+            console.log('Fallback fetch result:', { 
+                hasFetchedData: !!fetchedData, 
+                fetchedDataLength: fetchedData?.length,
+                fetchError: fetchError?.message,
+                gotOne: !!fetchedData?.[0]
+            })
             
             return res.json({ 
                 success: true, 
