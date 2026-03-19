@@ -19,17 +19,9 @@ const PORT = process.env.PORT || 3000
 
 // Middleware - CORS Configuration
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://ai-travel-agent-taupe.vercel.app',
-        'https://ai-travel-agent-fn9y.vercel.app',
-        'https://ai-travel-agent.vercel.app'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    origin: true,  // Allow all origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false,
-    optionsSuccessStatus: 200
 }))
 app.use(express.json())
 
