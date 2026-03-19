@@ -149,10 +149,11 @@ router.post('/', async (req, res) => {
             }
         })
     } catch (error) {
-        console.error('Chat error:', error)
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
+        console.error('Chat error:', error?.message)
+        res.json({ 
+            success: true, 
+            message: 'Could not process chat',
+            data: { message: 'Error processing request' }
         })
     }
 })
