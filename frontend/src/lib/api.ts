@@ -1,6 +1,14 @@
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
+// Log API configuration on module load for debugging
+if (typeof window !== 'undefined') {
+  console.log('API Configuration:', { 
+    API_BASE_URL,
+    VITE_BACKEND_URL: import.meta.env.VITE_BACKEND_URL
+  });
+}
+
 // Types
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -337,22 +345,33 @@ class ApiClient {
     }
   ): Promise<Favorite | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favorites`, {
+      const url = `${API_BASE_URL}/api/favorites`;
+      const body = {
+        userId,
+        destination,
+        country,
+        type: options?.type || 'destination',
+        reason: options?.reason,
+        description: options?.description,
+        imageUrl: options?.imageUrl,
+        priceEstimate: options?.priceEstimate,
+        rating: options?.rating,
+      };
+      console.log('addFavorite request:', { url, body });
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          destination,
-          country,
-          type: options?.type || 'destination',
-          reason: options?.reason,
-          description: options?.description,
-          imageUrl: options?.imageUrl,
-          priceEstimate: options?.priceEstimate,
-          rating: options?.rating,
-        }),
+        body: JSON.stringify(body),
       });
+      
       const result = await response.json();
+      console.log('addFavorite response:', { status: response.status, result });
+      
+      if (!response.ok) {
+        console.warn('addFavorite failed:', response.status, result);
+      }
+      
       return result.favorite || null;
     } catch (error) {
       console.warn('Error adding favorite:', error);
@@ -362,11 +381,14 @@ class ApiClient {
 
   async removeFavorite(favoriteId: string, userId: string): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/favorites/${favoriteId}?userId=${userId}`,
-        { method: 'DELETE' }
-      );
+      const url = `${API_BASE_URL}/api/favorites/${favoriteId}?userId=${userId}`;
+      console.log('removeFavorite request:', { url });
+      
+      const response = await fetch(url, { method: 'DELETE' });
       const result = await response.json();
+      
+      console.log('removeFavorite response:', { status: response.status, result });
+      
       return result.success || false;
     } catch (error) {
       console.warn('Error removing favorite:', error);
@@ -381,8 +403,13 @@ class ApiClient {
       if (limit) url.searchParams.append('limit', limit.toString());
       if (offset) url.searchParams.append('offset', offset.toString());
 
+      console.log('getFavorites request:', { url: url.toString() });
+      
       const response = await fetch(url.toString());
       const result = await response.json();
+      
+      console.log('getFavorites response:', { status: response.status, result });
+      
       return result.favorites || [];
     } catch (error) {
       console.warn('Error fetching favorites:', error);

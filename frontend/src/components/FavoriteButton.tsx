@@ -46,20 +46,31 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
+    console.log('FavoriteButton clicked', { userId, destination, country, isFavorited, loading });
+    
+    if (!userId) {
+      console.warn('No userId provided to FavoriteButton');
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isFavorited && favoriteId) {
-        await apiClient.removeFavorite(favoriteId, userId);
+        console.log('Removing favorite:', favoriteId);
+        const success = await apiClient.removeFavorite(favoriteId, userId);
+        console.log('Remove result:', success);
         setIsFavorited(false);
         setFavoriteId(null);
         onToggle?.(false);
       } else {
+        console.log('Adding favorite:', { destination, country });
         const favorite = await apiClient.addFavorite(userId, destination, country, {
           type,
           imageUrl,
           rating,
         });
+        console.log('Add result:', favorite);
         if (favorite) {
           setIsFavorited(true);
           setFavoriteId(favorite.id || null);
