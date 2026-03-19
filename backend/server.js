@@ -103,6 +103,22 @@ app.get('/api/debug/env', (req, res) => {
     })
 })
 
+// Favicon handler - return 204 No Content instead of 500
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end()
+})
+
+// 404 handler - catch undefined routes and return proper 404
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        error: 'Not Found',
+        path: req.path,
+        method: req.method,
+        message: `Route ${req.method} ${req.path} not found`
+    })
+})
+
 // Export for Vercel serverless
 export default app
 
