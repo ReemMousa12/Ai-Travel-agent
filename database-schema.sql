@@ -118,13 +118,25 @@ ALTER TABLE saved_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nearby_destinations ENABLE ROW LEVEL SECURITY;
 
--- Simple RLS policies (allow all for now - add auth checks in production)
-CREATE POLICY "Allow all access to user_preferences" ON user_preferences FOR ALL USING (true);
-CREATE POLICY "Allow all access to user_profiles" ON user_profiles FOR ALL USING (true);
-CREATE POLICY "Allow all access to trips" ON trips FOR ALL USING (true);
-CREATE POLICY "Allow all access to saved_items" ON saved_items FOR ALL USING (true);
-CREATE POLICY "Allow all access to chat_history" ON chat_history FOR ALL USING (true);
-CREATE POLICY "Allow all access to nearby_destinations" ON nearby_destinations FOR ALL USING (true);
+-- Drop existing policies if they exist and create fresh ones
+DO $$
+BEGIN
+    -- Drop policies if they exist
+    DROP POLICY IF EXISTS "Allow all access to user_preferences" ON user_preferences;
+    DROP POLICY IF EXISTS "Allow all access to user_profiles" ON user_profiles;
+    DROP POLICY IF EXISTS "Allow all access to trips" ON trips;
+    DROP POLICY IF EXISTS "Allow all access to saved_items" ON saved_items;
+    DROP POLICY IF EXISTS "Allow all access to chat_history" ON chat_history;
+    DROP POLICY IF EXISTS "Allow all access to nearby_destinations" ON nearby_destinations;
+    
+    -- Create policies (allow all for now - add auth checks in production)
+    CREATE POLICY "Allow all access to user_preferences" ON user_preferences FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Allow all access to user_profiles" ON user_profiles FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Allow all access to trips" ON trips FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Allow all access to saved_items" ON saved_items FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Allow all access to chat_history" ON chat_history FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Allow all access to nearby_destinations" ON nearby_destinations FOR ALL USING (true) WITH CHECK (true);
+END $$;
 
 -- Insert nearby destinations reference data
 INSERT INTO nearby_destinations (user_country, nearby_country, distance_km, travel_time_hours, popularity_score, best_season, notes) VALUES
