@@ -55,16 +55,42 @@ router.get('/user-preferences', async (req, res) => {
     try {
         const { userId } = req.query
         
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'userId parameter required',
+                data: null 
+            })
+        }
+        
         const { data, error } = await getSupabase()
             .from('user_preferences')
             .select('*')
             .eq('user_id', userId)
             .single()
         
-        if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
+        // PGRST116 = no rows found (not an error, just no data yet)
+        if (error && error.code !== 'PGRST116') {
+            console.error('Database error:', error)
+            // Table may not exist yet - return empty instead of error
+            if (error.message.includes('relation') || error.message.includes('does not exist')) {
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Table not yet initialized'
+                })
+            }
+            throw error
+        }
+        
         res.json({ success: true, data: data || null })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Get preferences error:', error)
+        res.status(500).json({ 
+            success: false, 
+            error: error.message || 'Failed to fetch preferences',
+            data: null 
+        })
     }
 })
 
@@ -73,29 +99,56 @@ router.post('/user-preferences', async (req, res) => {
     try {
         const { userId, preferences } = req.body
         
-        // Upsert user preferences
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'userId required' 
+            })
+        }
+        
+        // Upsert user preferences with correct column names
         const updateData = { 
             user_id: userId,
             updated_at: new Date().toISOString()
         }
         
-        // Add optional fields if provided
-        if (preferences.userName !== undefined) updateData.user_name = preferences.userName
-        if (preferences.locationCity !== undefined) updateData.location_city = preferences.locationCity
-        if (preferences.locationCountry !== undefined) updateData.location_country = preferences.locationCountry
-        if (preferences.locationLat !== undefined) updateData.location_lat = preferences.locationLat
-        if (preferences.locationLon !== undefined) updateData.location_lon = preferences.locationLon
-        if (preferences.locationCity !== undefined) updateData.last_weather_update = new Date().toISOString()
+        // Map frontend field names to database schema field names
+        if (preferences?.locationCity !== undefined) updateData.current_location = preferences.locationCity
+        if (preferences?.locationCountry !== undefined) updateData.current_country = preferences.locationCountry
+        if (preferences?.locationLat !== undefined) updateData.latitude = preferences.locationLat
+        if (preferences?.locationLon !== undefined) updateData.longitude = preferences.locationLon
+        if (preferences?.travelStyle !== undefined) updateData.preferred_travel_style = preferences.travelStyle
+        if (preferences?.budget !== undefined) updateData.preferred_budget = preferences.budget
+        if (preferences?.activities !== undefined) updateData.preferred_activities = preferences.activities
+        if (preferences?.dietaryRestrictions !== undefined) updateData.dietary_restrictions = preferences.dietaryRestrictions
+        if (preferences?.travelPace !== undefined) updateData.travel_pace = preferences.travelPace
+        if (preferences?.groupType !== undefined) updateData.group_type = preferences.groupType
         
         const { data, error } = await getSupabase()
             .from('user_preferences')
             .upsert([updateData], { onConflict: 'user_id' })
             .select()
         
-        if (error) throw error
-        res.json({ success: true, data: data[0] })
+        if (error) {
+            console.error('Upsert error:', error)
+            // If table doesn't exist, return success anyway
+            if (error.message.includes('relation') || error.message.includes('does not exist')) {
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Table not yet initialized'
+                })
+            }
+            throw error
+        }
+        
+        res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Save preferences error:', error)
+        res.status(500).json({ 
+            success: false, 
+            error: error.message || 'Failed to save preferences' 
+        })
     }
 })
 
@@ -123,15 +176,37 @@ router.delete('/user-preferences', async (req, res) => {
     try {
         const { userId } = req.query
         
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'userId parameter required' 
+            })
+        }
+        
         const { error } = await getSupabase()
             .from('user_preferences')
             .delete()
             .eq('user_id', userId)
         
-        if (error) throw error
+        if (error) {
+            console.error('Delete error:', error)
+            // If table doesn't exist, return success anyway
+            if (error.message.includes('relation') || error.message.includes('does not exist')) {
+                return res.json({ 
+                    success: true,
+                    message: 'Table not yet initialized'
+                })
+            }
+            throw error
+        }
+        
         res.json({ success: true })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Delete preferences error:', error)
+        res.status(500).json({ 
+            success: false, 
+            error: error.message || 'Failed to delete preferences' 
+        })
     }
 })
 

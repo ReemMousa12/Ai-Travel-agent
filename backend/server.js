@@ -18,12 +18,19 @@ import locationRoutes from './routes/location.js'
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Middleware - CORS Configuration
+// Middleware - CORS Configuration (MUST be FIRST)
+// Allow all origins with credentials
 app.use(cors({
-    origin: true,  // Allow all origins
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: ['https://ai-travel-agent-fn9y.vercel.app', 'http://localhost:5173', 'http://localhost:3001', '*'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    maxAge: 86400
 }))
+
+// Explicitly handle OPTIONS requests
+app.options('*', cors())
+
 app.use(express.json())
 
 // Root route
