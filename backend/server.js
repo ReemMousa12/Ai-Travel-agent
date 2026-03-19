@@ -13,6 +13,7 @@ dotenv.config({ path: path.join(__dirname, '.env') })
 import chatRoutes from './routes/chat.js'
 import travelRoutes from './routes/travel.js'
 import databaseRoutes from './routes/database.js'
+import locationRoutes from './routes/location.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -34,6 +35,13 @@ app.get('/', (req, res) => {
         endpoints: {
             health: '/api/health',
             chat: 'POST /api/chat',
+            location: {
+                current: 'GET /api/location/current',
+                save: 'POST /api/location/save',
+                nearby: 'GET /api/location/nearby?country=USA',
+                recommendations: 'GET /api/location/recommendations?userId=USER_ID&country=USA',
+                explore: 'GET /api/location/explore?destination=Mexico'
+            },
             travel: {
                 weather: 'GET /api/travel/weather?location=Paris',
                 location: 'GET /api/travel/location',
@@ -46,8 +54,8 @@ app.get('/', (req, res) => {
                 trips: 'GET /api/database/trips?userId=user_123',
                 saveTrip: 'POST /api/database/trips',
                 deleteTrip: 'DELETE /api/database/trips/:id?userId=user_123',
-                bookmarks: 'GET /api/database/bookmarks?userId=user_123',
-                saveBookmark: 'POST /api/database/bookmarks'
+                userPreferences: 'GET /api/database/user-preferences?userId=user_123',
+                savePreferences: 'POST /api/database/user-preferences'
             }
         }
     })
@@ -57,6 +65,7 @@ app.get('/', (req, res) => {
 app.use('/api/chat', chatRoutes)
 app.use('/api/travel', travelRoutes)
 app.use('/api/database', databaseRoutes)
+app.use('/api/location', locationRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
