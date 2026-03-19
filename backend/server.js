@@ -10,6 +10,15 @@ const __dirname = path.dirname(__filename)
 // Load environment variables FIRST before importing routes
 dotenv.config({ path: path.join(__dirname, '.env') })
 
+// Verify critical environment variables exist
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY']
+const missingEnvVars = requiredEnvVars.filter(v => !process.env[v])
+
+if (missingEnvVars.length > 0) {
+    console.warn(`⚠️ Missing environment variables: ${missingEnvVars.join(', ')}`)
+    console.warn('ℹ️ Set these in Vercel Dashboard → Project Settings → Environment Variables')
+}
+
 import chatRoutes from './routes/chat.js'
 import travelRoutes from './routes/travel.js'
 import databaseRoutes from './routes/database.js'
@@ -73,7 +82,25 @@ app.use('/api/location', locationRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'AI Travel Agent Backend is running' })
+    res.json({ 
+        status: 'ok', 
+        message: 'AI Travel Agent Backend is running',
+        environment: process.env.NODE_ENV || 'development'
+    })
+})
+
+// Debug endpoint - check which env vars are set
+app.get('/api/debug/env', (req, res) => {
+    res.json({
+        status: 'debug',
+        environment_variables_configured: {
+            SUPABASE_URL: !!process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing',
+            SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing',
+            GROQ_API_KEY: !!process.env.GROQ_API_KEY ? '✅ Set' : '❌ Missing',
+            NODE_ENV: process.env.NODE_ENV || 'unset'
+        },
+        message: 'Set missing variables in Vercel Dashboard → Project Settings → Environment Variables'
+    })
 })
 
 // Export for Vercel serverless

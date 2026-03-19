@@ -5,15 +5,58 @@ const router = express.Router()
 
 // Initialize Supabase client lazily to ensure env vars are loaded
 let supabase = null
+let supabaseError = null
+
 function getSupabase() {
+    if (supabaseError) {
+        throw supabaseError
+    }
+    
     if (!supabase) {
-        supabase = createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_ANON_KEY
-        )
+        try {
+            const url = process.env.SUPABASE_URL
+            const key = process.env.SUPABASE_ANON_KEY
+            
+            if (!url || !key) {
+                supabaseError = new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables')
+                throw supabaseError
+            }
+            
+            supabase = createClient(url, key)
+        } catch (error) {
+            supabaseError = error
+            throw error
+        }
     }
     return supabase
 }
+
+// Health check for database service
+router.get('/health', async (req, res) => {
+    try {
+        const client = getSupabase()
+        const { data, error } = await client.from('user_profiles').select('count', { count: 'exact', head: true })
+        
+        if (error && error.code !== 'PGRST116') {
+            throw error
+        }
+        
+        res.json({ 
+            success: true, 
+            status: 'Database connected',
+            envVars: {
+                SUPABASE_URL: !!process.env.SUPABASE_URL,
+                SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
+            }
+        })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Database service not configured - set SUPABASE_URL and SUPABASE_ANON_KEY'
+        })
+    }
+})
 
 // GET /api/database/trips?userId=user_123
 router.get('/trips', async (req, res) => {
