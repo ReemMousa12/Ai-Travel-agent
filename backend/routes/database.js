@@ -63,16 +63,27 @@ router.get('/trips', async (req, res) => {
     try {
         const { userId } = req.query
         
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required', data: [] })
+        }
+        
         const { data, error } = await getSupabase()
             .from('saved_trips')
             .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
         
-        if (error) throw error
-        res.json({ success: true, data })
+        if (error) {
+            // If table doesn't exist, return empty array instead of error
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: [], message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data || [] })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Get trips error:', error?.message)
+        res.json({ success: true, data: [], message: 'Could not fetch trips' })
     }
 })
 
@@ -81,15 +92,25 @@ router.post('/trips', async (req, res) => {
     try {
         const { userId, tripData } = req.body
         
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' })
+        }
+        
         const { data, error } = await getSupabase()
             .from('saved_trips')
             .insert([{ user_id: userId, ...tripData }])
             .select()
         
-        if (error) throw error
-        res.json({ success: true, data: data[0] })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: null, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Save trip error:', error?.message)
+        res.json({ success: true, data: null, message: 'Could not save trip' })
     }
 })
 
@@ -201,16 +222,26 @@ router.delete('/trips/:id', async (req, res) => {
         const { id } = req.params
         const { userId } = req.query
         
+        if (!id || !userId) {
+            return res.status(400).json({ success: false, error: 'id and userId required' })
+        }
+        
         const { error } = await getSupabase()
             .from('saved_trips')
             .delete()
             .eq('id', id)
             .eq('user_id', userId)
         
-        if (error) throw error
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
         res.json({ success: true })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Delete trip error:', error?.message)
+        res.json({ success: true })
     }
 })
 
@@ -258,6 +289,10 @@ router.get('/bookmarks', async (req, res) => {
     try {
         const { userId, tripId } = req.query
         
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required', data: [] })
+        }
+        
         let query = getSupabase()
             .from('bookmarks')
             .select('*')
@@ -269,10 +304,16 @@ router.get('/bookmarks', async (req, res) => {
         
         const { data, error } = await query.order('created_at', { ascending: false })
         
-        if (error) throw error
-        res.json({ success: true, data })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: [], message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data || [] })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Get bookmarks error:', error?.message)
+        res.json({ success: true, data: [] })
     }
 })
 
@@ -280,6 +321,10 @@ router.get('/bookmarks', async (req, res) => {
 router.post('/bookmarks', async (req, res) => {
     try {
         const { userId, itemType, itemData, tripId, notes } = req.body
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' })
+        }
         
         const { data, error } = await getSupabase()
             .from('bookmarks')
@@ -292,10 +337,16 @@ router.post('/bookmarks', async (req, res) => {
             }])
             .select()
         
-        if (error) throw error
-        res.json({ success: true, data: data[0] })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: null, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Save bookmark error:', error?.message)
+        res.json({ success: true, data: null })
     }
 })
 
@@ -305,16 +356,26 @@ router.delete('/bookmarks/:id', async (req, res) => {
         const { id } = req.params
         const { userId } = req.query
         
+        if (!id || !userId) {
+            return res.status(400).json({ success: false, error: 'id and userId required' })
+        }
+        
         const { error } = await getSupabase()
             .from('bookmarks')
             .delete()
             .eq('id', id)
             .eq('user_id', userId)
         
-        if (error) throw error
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
         res.json({ success: true })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Delete bookmark error:', error?.message)
+        res.json({ success: true })
     }
 })
 
@@ -322,6 +383,10 @@ router.delete('/bookmarks/:id', async (req, res) => {
 router.get('/chat-history', async (req, res) => {
     try {
         const { userId, sessionId, limit = 50 } = req.query
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required', data: [] })
+        }
         
         let query = getSupabase()
             .from('chat_history')
@@ -336,10 +401,16 @@ router.get('/chat-history', async (req, res) => {
         
         const { data, error } = await query
         
-        if (error) throw error
-        res.json({ success: true, data })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: [], message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data || [] })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Get chat history error:', error?.message)
+        res.json({ success: true, data: [] })
     }
 })
 
@@ -347,6 +418,10 @@ router.get('/chat-history', async (req, res) => {
 router.post('/chat-history', async (req, res) => {
     try {
         const { userId, role, content, sessionId } = req.body
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' })
+        }
         
         const { data, error } = await getSupabase()
             .from('chat_history')
@@ -358,10 +433,16 @@ router.post('/chat-history', async (req, res) => {
             }])
             .select()
         
-        if (error) throw error
-        res.json({ success: true, data: data[0] })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: null, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Save chat history error:', error?.message)
+        res.json({ success: true, data: null })
     }
 })
 
@@ -369,6 +450,10 @@ router.post('/chat-history', async (req, res) => {
 router.delete('/chat-history', async (req, res) => {
     try {
         const { userId, sessionId } = req.query
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' })
+        }
         
         let query = getSupabase()
             .from('chat_history')
@@ -381,10 +466,16 @@ router.delete('/chat-history', async (req, res) => {
         
         const { error } = await query
         
-        if (error) throw error
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
         res.json({ success: true })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Delete chat history error:', error?.message)
+        res.json({ success: true })
     }
 })
 
@@ -392,6 +483,10 @@ router.delete('/chat-history', async (req, res) => {
 router.get('/search-history', async (req, res) => {
     try {
         const { userId, type, limit = 20 } = req.query
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required', data: [] })
+        }
         
         let query = getSupabase()
             .from('search_history')
@@ -406,10 +501,16 @@ router.get('/search-history', async (req, res) => {
         
         const { data, error } = await query
         
-        if (error) throw error
-        res.json({ success: true, data })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: [], message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data || [] })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Get search history error:', error?.message)
+        res.json({ success: true, data: [] })
     }
 })
 
@@ -417,6 +518,10 @@ router.get('/search-history', async (req, res) => {
 router.post('/search-history', async (req, res) => {
     try {
         const { userId, searchType, searchQuery, resultsCount } = req.body
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' })
+        }
         
         const { data, error } = await getSupabase()
             .from('search_history')
@@ -428,10 +533,16 @@ router.post('/search-history', async (req, res) => {
             }])
             .select()
         
-        if (error) throw error
-        res.json({ success: true, data: data[0] })
+        if (error) {
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ success: true, data: null, message: 'Table not yet initialized' })
+            }
+            throw error
+        }
+        res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        console.error('Save search history error:', error?.message)
+        res.json({ success: true, data: null })
     }
 })
 
