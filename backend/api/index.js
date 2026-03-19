@@ -1,39 +1,26 @@
 import app from '../server.js'
 
-// CRITICAL: Add CORS middleware BEFORE everything else to catch all responses including errors
-const corsMiddleware = (req, res, next) => {
-    // Set CORS headers for ALL responses
+/**
+ * Vercel Serverless Handler
+ * Apply CORS headers to all responses
+ */
+
+// 1. Handle preflight OPTIONS requests
+app.options('*', (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Credentials', 'true')
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
     res.setHeader('Access-Control-Max-Age', '86400')
-    
-    // Handle preflight OPTIONS requests
-    if (req.method === 'OPTIONS') {
-        res.setHeader('Content-Length', '0')
-        return res.status(200).end()
-    }
-    
-    next()
-}
+    res.status(204).end()
+})
 
-// Apply CORS to all routes
-app.use(corsMiddleware)
-
-// Add error handling middleware that preserves CORS headers
-app.use((err, req, res, next) => {
-    console.error('Error:', err)
-    
-    // Ensure CORS headers are on error responses too
+// 2. CORS middleware - applied to all requests FIRST
+app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    
-    res.status(err.status || 500).json({
-        success: false,
-        error: err.message || 'Internal Server Error'
-    })
+    next()
 })
 
+// Export for Vercel
 export default app
