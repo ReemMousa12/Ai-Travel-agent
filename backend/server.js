@@ -23,6 +23,7 @@ import chatRoutes from './routes/chat.js'
 import travelRoutes from './routes/travel.js'
 import databaseRoutes from './routes/database.js'
 import locationRoutes from './routes/location.js'
+import favoritesRoutes from './routes/favorites.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -69,6 +70,13 @@ app.get('/', (req, res) => {
                 deleteTrip: 'DELETE /api/database/trips/:id?userId=user_123',
                 userPreferences: 'GET /api/database/user-preferences?userId=user_123',
                 savePreferences: 'POST /api/database/user-preferences'
+            },
+            favorites: {
+                list: 'GET /api/favorites?userId=user_123',
+                add: 'POST /api/favorites',
+                update: 'PUT /api/favorites/:id',
+                delete: 'DELETE /api/favorites/:id?userId=user_123',
+                filter: 'GET /api/favorites/filter?userId=user_123&type=destination'
             }
         }
     })
@@ -79,6 +87,7 @@ app.use('/api/chat', chatRoutes)
 app.use('/api/travel', travelRoutes)
 app.use('/api/database', databaseRoutes)
 app.use('/api/location', locationRoutes)
+app.use('/api/favorites', favoritesRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

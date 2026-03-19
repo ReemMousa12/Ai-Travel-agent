@@ -70,6 +70,24 @@ export interface Deal {
   reviews: number;
 }
 
+export interface Favorite {
+  id?: string;
+  user_id: string;
+  destination: string;
+  country: string;
+  type?: 'destination' | 'hotel' | 'activity' | 'flight';
+  reason?: string;
+  description?: string;
+  image_url?: string;
+  notes?: string;
+  price_estimate?: number;
+  rating?: number;
+  visited?: boolean;
+  visit_date?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface TrendingData {
   destinations: Destination[];
   deals: Deal[];
@@ -301,6 +319,129 @@ class ApiClient {
       { method: 'DELETE' }
     );
     return response.json();
+  }
+
+  // ===== FAVORITES METHODS =====
+
+  async addFavorite(
+    userId: string,
+    destination: string,
+    country: string,
+    options?: {
+      type?: 'destination' | 'hotel' | 'activity' | 'flight';
+      reason?: string;
+      description?: string;
+      imageUrl?: string;
+      priceEstimate?: number;
+      rating?: number;
+    }
+  ): Promise<Favorite | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          destination,
+          country,
+          type: options?.type || 'destination',
+          reason: options?.reason,
+          description: options?.description,
+          imageUrl: options?.imageUrl,
+          priceEstimate: options?.priceEstimate,
+          rating: options?.rating,
+        }),
+      });
+      const result = await response.json();
+      return result.favorite || null;
+    } catch (error) {
+      console.warn('Error adding favorite:', error);
+      return null;
+    }
+  }
+
+  async removeFavorite(favoriteId: string, userId: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/favorites/${favoriteId}?userId=${userId}`,
+        { method: 'DELETE' }
+      );
+      const result = await response.json();
+      return result.success || false;
+    } catch (error) {
+      console.warn('Error removing favorite:', error);
+      return false;
+    }
+  }
+
+  async getFavorites(userId: string, limit?: number, offset?: number): Promise<Favorite[]> {
+    try {
+      const url = new URL(`${API_BASE_URL}/api/favorites`);
+      url.searchParams.append('userId', userId);
+      if (limit) url.searchParams.append('limit', limit.toString());
+      if (offset) url.searchParams.append('offset', offset.toString());
+
+      const response = await fetch(url.toString());
+      const result = await response.json();
+      return result.favorites || [];
+    } catch (error) {
+      console.warn('Error fetching favorites:', error);
+      return [];
+    }
+  }
+
+  async updateFavorite(
+    favoriteId: string,
+    userId: string,
+    updates: {
+      visited?: boolean;
+      visitDate?: string;
+      notes?: string;
+      reason?: string;
+    }
+  ): Promise<Favorite | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/${favoriteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          visited: updates.visited,
+          visitDate: updates.visitDate,
+          notes: updates.notes,
+          reason: updates.reason,
+        }),
+      });
+      const result = await response.json();
+      return result.favorite || null;
+    } catch (error) {
+      console.warn('Error updating favorite:', error);
+      return null;
+    }
+  }
+
+  async filterFavorites(
+    userId: string,
+    filters?: {
+      type?: string;
+      reason?: string;
+      visited?: boolean;
+    }
+  ): Promise<Favorite[]> {
+    try {
+      const url = new URL(`${API_BASE_URL}/api/favorites/filter`);
+      url.searchParams.append('userId', userId);
+      if (filters?.type) url.searchParams.append('type', filters.type);
+      if (filters?.reason) url.searchParams.append('reason', filters.reason);
+      if (filters?.visited !== undefined) url.searchParams.append('visited', filters.visited.toString());
+
+      const response = await fetch(url.toString());
+      const result = await response.json();
+      return result.favorites || [];
+    } catch (error) {
+      console.warn('Error filtering favorites:', error);
+      return [];
+    }
   }
 }
 

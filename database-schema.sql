@@ -138,6 +138,33 @@ BEGIN
     CREATE POLICY "Allow all access to nearby_destinations" ON nearby_destinations FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
+-- Table: favorites (Wishlist of favorite destinations)
+CREATE TABLE IF NOT EXISTS favorites (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    country TEXT NOT NULL,
+    type TEXT DEFAULT 'destination', -- 'destination', 'hotel', 'activity', 'flight'
+    reason TEXT, -- 'adventure', 'relaxation', 'culture', 'beach', 'mountain', etc
+    description TEXT,
+    image_url TEXT,
+    notes TEXT,
+    price_estimate DECIMAL(10, 2),
+    rating DECIMAL(2, 1),
+    visited BOOLEAN DEFAULT FALSE,
+    visit_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_destination ON favorites(destination);
+CREATE INDEX IF NOT EXISTS idx_favorites_visited ON favorites(visited);
+
+-- Enable RLS for favorites
+ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to favorites" ON favorites FOR ALL USING (true) WITH CHECK (true);
+
 -- Insert nearby destinations reference data
 INSERT INTO nearby_destinations (user_country, nearby_country, distance_km, travel_time_hours, popularity_score, best_season, notes) VALUES
 ('USA', 'Mexico', 300, 4, 9.0, 'Oct-Apr', 'Close, warm, beaches'),
