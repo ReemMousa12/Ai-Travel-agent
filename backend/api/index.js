@@ -1,13 +1,16 @@
 import app from '../server.js'
 
-// Add CORS middleware for Vercel
+// Ensure CORS headers are sent for ALL responses - MUST be BEFORE routes
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH')
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Max-Age', '86400')
     
+    // Handle OPTIONS requests
     if (req.method === 'OPTIONS') {
-        return res.sendStatus(200)
+        res.setHeader('Content-Length', '0')
+        return res.status(200).end()
     }
     next()
 })
