@@ -17,18 +17,25 @@ function getSupabase() {
 // Detect user's current location (using IP geolocation)
 export async function detectUserLocation() {
     try {
+        // Use HTTPS endpoint to avoid browser blocks
         const response = await fetch('https://ipapi.co/json/')
         const data = await response.json()
         
+        if (data.error) {
+            console.error('IP geolocation error:', data.reason)
+            return null
+        }
+        
         return {
-            country: data.country_name,
-            city: data.city,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            timezone: data.timezone
+            country: data.country_name || 'Unknown',
+            country_code: data.country_code || 'US',
+            city: data.city || 'Unknown',
+            latitude: data.latitude || 0,
+            longitude: data.longitude || 0,
+            timezone: data.timezone || ''
         }
     } catch (error) {
-        console.error('Error detecting location:', error)
+        console.error('Error detecting location:', error?.message)
         return null
     }
 }
