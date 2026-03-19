@@ -71,10 +71,11 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
           rating,
         });
         console.log('Add result:', favorite);
-        if (favorite) {
-          setIsFavorited(true);
-          setFavoriteId(favorite.id || null);
-          onToggle?.(true);
+        
+        // Consider it successful even if favorite object is null, as long as the insert didn't error
+        if (favorite || favorite === null) {
+          // Re-check if it was actually added
+          await checkIfFavorited();
         }
       }
     } catch (error) {

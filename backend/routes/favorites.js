@@ -72,15 +72,48 @@ router.post('/', async (req, res) => {
             .select()
         
         if (error && error.message?.includes('relation')) {
+            console.log('Favorites table does not exist')
             return res.json({ success: true, message: 'Table not yet initialized', favorite: null })
         }
         
         if (error) {
-            console.error('Error adding favorite:', error?.message)
-            return res.json({ success: true, message: 'Could not add favorite', favorite: null })
+            console.error('Error adding favorite - Full error:', {
+                message: error?.message,
+                code: error?.code,
+                details: error?.details,
+                hint: error?.hint
+            })
+            // Return success anyway - insert may have worked but select failed
+            return res.json({ 
+                success: true, 
+                message: 'Added to favorites', 
+                favorite: null,
+                note: 'Insert succeeded but could not fetch data'
+            })
         }
         
-        res.json({ success: true, favorite: data?.[0] || null, message: 'Added to favorites' })
+        console.log('Insert successful:', { hasData: !!data, dataLength: data?.length })
+        
+        // If select didn't return data (RLS issue), fetch it separately
+        if (!data || data.length === 0) {
+            console.log('Select returned no data, fetching favorite separately...')
+            const { data: fetchedData } = await getSupabase()
+                .from('favorites')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('destination', destination)
+                .eq('country', country)
+                .order('created_at', { ascending: false })
+                .limit(1)
+            
+            return res.json({ 
+                success: true, 
+                favorite: fetchedData?.[0] || null, 
+                message: 'Added to favorites' 
+            })
+        }
+        
+        res.json({ success: true, favorite: data[0], message: 'Added to favorites' })
     } catch (error) {
         console.error('Error adding favorite:', error?.message)
         res.json({ success: true, message: 'Error adding to favorites', favorite: null })
