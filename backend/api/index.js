@@ -116,15 +116,40 @@ app.use((req, res) => {
     })
 })
 
-// Error handler - must be last middleware
+// Error handler - must be last middleware (4 parameters for error handler)
 app.use((err, req, res, next) => {
-    console.error('❌ Server error:', err)
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred',
-        path: req.path,
-        method: req.method
-    })
+    // Prevent "headers already sent" errors
+    if (res.headersSent) {
+        return next(err)
+    }
+    
+    console.error('❌ Server error:', err?.message || err)
+    
+    try {
+        // Ensure CORS headers are set even on error
+        res.header('Access-Control-Allow-Origin', '*')
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        
+        const statusCode = err?.statusCode || err?.status || 500
+        const message = err?.message || 'Internal Server Error'
+        
+        res.status(statusCode).json({
+            success: false,
+            error: 'Internal Server Error',
+            message: process.env.NODE_ENV === 'development' ? message : 'An error occurred',
+            path: req.path,
+            method: req.method
+        })
+    } catch (handlerErr) {
+        console.error('❌ Error handler exception:', handlerErr)
+        // Attempt to send error response, but don't crash if it fails
+        try {
+            res.status(500).json({ error: 'Internal Server Error' })
+        } catch (e) {
+            console.error('❌ Unable to send error response:', e)
+        }
+    }
 })
 
 // Export for Vercel

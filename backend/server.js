@@ -150,23 +150,6 @@ app.get('/favicon.ico', (req, res) => {
     res.status(204).end()
 })
 
-// Global error handler - MUST be last middleware, with 4 parameters
-app.use((err, req, res, next) => {
-    console.error('❌ Server Error:', err.message)
-    
-    // Ensure CORS headers are set for error responses
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    
-    const statusCode = err.statusCode || 500
-    res.status(statusCode).json({
-        success: false,
-        error: err.message || 'Internal Server Error',
-        message: err.message || 'An unexpected error occurred'
-    })
-})
-
 // 404 handler - catch undefined routes and return proper 404
 app.use((req, res) => {
     res.status(404).json({
@@ -176,6 +159,38 @@ app.use((req, res) => {
         method: req.method,
         message: `Route ${req.method} ${req.path} not found`
     })
+})
+
+// Global error handler - MUST be last middleware, with 4 parameters (err, req, res, next)
+app.use((err, req, res, next) => {
+    // Prevent headers already sent error
+    if (res.headersSent) {
+        return next(err)
+    }
+    
+    console.error('❌ Server Error:', err?.message || err)
+    
+    try {
+        // Ensure CORS headers are set for error responses
+        res.header('Access-Control-Allow-Origin', '*')
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        
+        const statusCode = err?.statusCode || err?.status || 500
+        const message = err?.message || 'Internal Server Error'
+        
+        res.status(statusCode).json({
+            success: false,
+            error: message,
+            message: message
+        })
+    } catch (handlerErr) {
+        console.error('❌ Error Handler Exception:', handlerErr)
+        res.status(500).json({
+            success: false,
+            error: 'Internal Server Error'
+        })
+    }
 })
 
 // Export for Vercel serverless

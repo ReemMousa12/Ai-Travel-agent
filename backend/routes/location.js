@@ -10,9 +10,17 @@ import { testLocationServices } from '../services/basic.js'
 
 const router = express.Router()
 
-// Wrapper to catch async errors
+// Wrapper to catch async errors - more robust for serverless
 const asyncHandler = (fn) => (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next)
+    try {
+        Promise.resolve(fn(req, res, next)).catch((err) => {
+            console.error('❌ Route handler error:', err?.message || err)
+            next(err)
+        })
+    } catch (err) {
+        console.error('❌ Async handler error:', err?.message || err)
+        next(err)
+    }
 }
 
 // GET /api/location/current

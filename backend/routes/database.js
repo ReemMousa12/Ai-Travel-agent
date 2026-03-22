@@ -3,9 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 
 const router = express.Router()
 
-// Wrapper to catch async errors
+// Wrapper to catch async errors - more robust for serverless
 const asyncHandler = (fn) => (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next)
+    try {
+        Promise.resolve(fn(req, res, next)).catch((err) => {
+            console.error('❌ Route handler error:', err?.message || err)
+            next(err)
+        })
+    } catch (err) {
+        console.error('❌ Async handler error:', err?.message || err)
+        next(err)
+    }
 }
 
 // Initialize Supabase client lazily to ensure env vars are loaded
