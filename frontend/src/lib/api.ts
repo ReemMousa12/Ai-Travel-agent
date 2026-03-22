@@ -130,25 +130,31 @@ class ApiClient {
               try {
                 // Reverse geocode coordinates to get city/country
                 const { latitude, longitude } = position.coords
+                console.log('📍 GPS position acquired:', { latitude, longitude, accuracy: position.coords.accuracy });
+                
                 const response = await fetch(
                   `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
                 )
                 const data = await response.json()
                 
-                resolve({
+                const location: LocationData = {
                   city: data.address?.city || data.address?.town || 'Your Location',
                   country: data.address?.country_code?.toUpperCase() || 'EG',
                   latitude,
                   longitude,
                   error: undefined
-                })
+                }
+                console.log('✅ Location detected via GPS:', location);
+                resolve(location);
               } catch (error) {
+                console.warn('Reverse geocoding failed, using IP-based fallback:', error);
                 // Fallback to IP-based if reverse geocoding fails
                 this.fallbackLocationDetection().then(resolve)
               }
             },
-            async () => {
+            async (error) => {
               // User denied permission, fall back to IP-based
+              console.warn('❌ Geolocation permission denied:', error.message);
               const result = await this.fallbackLocationDetection()
               resolve(result)
             },
@@ -158,6 +164,7 @@ class ApiClient {
       }
       
       // No geolocation support, use IP-based
+      console.log('ℹ️ Browser geolocation not available, using IP-based detection');
       return this.fallbackLocationDetection()
     } catch (error) {
       console.error('Location error:', error)

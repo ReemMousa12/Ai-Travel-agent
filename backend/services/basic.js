@@ -16,9 +16,12 @@ export async function getCurrentWeather({ location }) {
 
 export async function getLocation() {
     try {
-        // Using ip-api.com HTTPS version - free, no API key needed
-        // Fallback to ipapi.co if ip-api fails
+        // Priority 1: Try ipapi.co (most reliable, free, returns city name)
+        // Priority 2: Fall back to ip-api.com if ipapi.co fails
+        // Priority 3: Return hardcoded fallback (London, GB)
+        
         try {
+            console.log('🌍 Detecting user location via ipapi.co...');
             const response = await fetch('https://ipapi.co/json/')
             const data = await response.json()
             
@@ -36,11 +39,13 @@ export async function getLocation() {
                 timezone: data.timezone || ''
             }
             
+            console.log('✅ Location detected (ipapi.co):', locationData.city, locationData.country);
             return JSON.stringify(locationData)
         } catch (primaryError) {
-            console.warn('Primary location service failed, trying fallback:', primaryError?.message)
+            console.warn('⚠️ ipapi.co failed, trying fallback:', primaryError?.message)
             
             // Fallback to ip-api with HTTPS
+            console.log('🌍 Detecting user location via ip-api.com...');
             const response = await fetch('https://ip-api.com/json/?fields=status,message,country,countryCode,region,regionName,city,lat,lon,timezone,isp&ssl=true')
             const data = await response.json()
             
@@ -59,10 +64,12 @@ export async function getLocation() {
                 org: data.isp || ''
             }
             
+            console.log('✅ Location detected (ip-api.com):', locationData.city, locationData.country);
             return JSON.stringify(locationData)
         }
     } catch (err) {
-        console.error('Location detection error:', err?.message)
+        console.error('❌ Location detection error:', err?.message)
+        console.log('📍 Using fallback location: London, GB');
         return JSON.stringify({ 
             error: err?.message || 'Could not detect location',
             city: 'London',

@@ -13,10 +13,60 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState('Loading...');
   const [loading, setLoading] = useState(true);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   useEffect(() => {
     loadDashboard();
   }, [userId]);
+
+  async function requestLocationPermission() {
+    setLoading(true);
+    try {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            console.log('📍 Location permission granted:', { latitude, longitude });
+            
+            try {
+              // Reverse geocode to get city/country
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+              );
+              const data = await response.json();
+              
+              const city = data.address?.city || data.address?.town || 'Your Location';
+              const country = data.address?.country_code?.toUpperCase() || 'EG';
+              
+              setLocation(`${city}, ${country}`);
+              setShowLocationPrompt(false);
+              
+              // Save to database
+              await apiClient.saveUserPreferences(userId, {
+                locationCity: city,
+                locationCountry: country,
+                locationLat: latitude,
+                locationLon: longitude,
+              }).catch(err => console.warn('Could not save preferences:', err));
+            } catch (error) {
+              console.error('Reverse geocoding error:', error);
+            }
+          },
+          () => {
+            console.log('📍 Location permission denied');
+            setPermissionDenied(true);
+            setShowLocationPrompt(false);
+            loadDashboard(); // Fall back to IP-based or saved location
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Location request error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function loadDashboard() {
     try {
@@ -140,16 +190,54 @@ export default function Dashboard({ userId }: DashboardProps) {
                 <MapPin size={18} />
                 {location}
               </p>
+              {permissionDenied && (
+                <p className="text-yellow-200 text-sm mt-2 flex items-center gap-1">
+                  ⚠️ Location access denied (using IP-based detection)
+                </p>
+              )}
             </div>
-            <button
-              onClick={updateLocation}
-              disabled={loading}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
-              title="Update Location"
-            >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowLocationPrompt(!showLocationPrompt)}
+                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                title="Update Location with GPS"
+              >
+                <MapPin size={20} />
+              </button>
+              <button
+                onClick={updateLocation}
+                disabled={loading}
+                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
+                title="Refresh Location"
+              >
+                <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
+
+          {/* Location Permission Prompt */}
+          {showLocationPrompt && (
+            <div className="bg-white/20 rounded-lg p-4 mb-4 border border-white/30">
+              <p className="text-sm mb-3 text-white/90">
+                📍 Allow access to your precise location for better travel recommendations?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={requestLocationPermission}
+                  disabled={loading}
+                  className="flex-1 bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Detecting...' : 'Allow'}
+                </button>
+                <button
+                  onClick={() => setShowLocationPrompt(false)}
+                  className="flex-1 bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          )}
 
           {weather && !loading && weather.main ? (
             <div className="space-y-4">
