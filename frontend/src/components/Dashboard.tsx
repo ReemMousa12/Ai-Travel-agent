@@ -109,7 +109,7 @@ export default function Dashboard({ userId }: DashboardProps) {
       const preferences = await apiClient.getUserPreferences(userId);
       console.log('📦 Preferences loaded:', preferences);
       
-      let city = 'London'; // Fallback location (if GPS doesn't work, you'll see London instead of Cairo)
+      let city = 'London';
       let locationSet = false;
       
       if (preferences?.locationCity) {
@@ -118,19 +118,25 @@ export default function Dashboard({ userId }: DashboardProps) {
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
         locationSet = true;
       } else {
-        console.log('ℹ️ No saved location in user_preferences, will try GPS...');
+        console.log('ℹ️ No saved location in user_preferences');
       }
       
-      // If no saved preferences, try GPS first
+      // If no saved preferences, prompt for GPS permission
       if (!locationSet) {
-        console.log('🟡 ENTERING GPS DETECTION BLOCK');
-        console.log('🔍 Requesting GPS permission (IP-based detection skipped due to service issues)...');
-        await requestLocationPermissionSilent();
+        console.log('🟡 No saved location - requesting GPS permission...');
+        console.log('🔍 Showing location permission prompt to user');
+        setShowLocationPrompt(true);
+        
+        // Also try requesting permission automatically (user will see browser prompt)
+        setTimeout(() => {
+          console.log('⏰ Auto-requesting GPS after delay...');
+          requestLocationPermission();
+        }, 500);
       } else {
-        console.log('✅ Location already set, displaying saved location');
+        console.log('✅ Location already set');
       }
       
-      // Load weather for the city (either saved, GPS-detected, or Cairo default)
+      // Load weather for the city (either saved or default London)
       const weatherData = await apiClient.getWeather(city);
       setWeather(weatherData);
     } catch (error) {
@@ -138,75 +144,6 @@ export default function Dashboard({ userId }: DashboardProps) {
       setLocation('London, UK');
     } finally {
       setLoading(false);
-    }
-  }
-
-  // Silent GPS request (no user prompt initially, just try)
-  async function requestLocationPermissionSilent() {
-    try {
-      if ('geolocation' in navigator) {
-        console.log('📍 Attempting silent GPS detection...');
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            console.log('✅ GPS permission granted');
-            const { latitude, longitude } = position.coords;
-            console.log('📍 GPS coordinates:', latitude, longitude);
-            
-            // Reverse geocode to get city
-            try {
-              const response = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-              );
-              const data = await response.json();
-              const detectedCity = data.address?.city || data.address?.town || 'Cairo';
-              const detectedCountry = data.address?.country || 'Egypt';
-              
-              console.log('🌍 Detected location:', detectedCity, detectedCountry);
-              setLocation(`${detectedCity}, ${detectedCountry}`);
-              
-              // Save to database
-              try {
-                await apiClient.saveUserPreferences(userId, {
-                  locationCity: detectedCity,
-                  locationCountry: detectedCountry,
-                  locationLat: latitude,
-                  locationLon: longitude,
-                });
-                console.log('✅ GPS location saved to preferences');
-              } catch (err) {
-                console.error('❌ Failed to save preferences:', err);
-              }
-              
-              try {
-                await apiClient.saveDetectedLocation(userId, {
-                  locationCity: detectedCity,
-                  locationCountry: detectedCountry,
-                  latitude: latitude,
-                  longitude: longitude,
-                });
-                console.log('✅ GPS location saved to profile');
-              } catch (err) {
-                console.error('❌ Failed to save profile:', err);
-              }
-            } catch (err) {
-              console.warn('Could not reverse geocode:', err);
-              setLocation('Cairo, Egypt'); // Fallback to Cairo
-            }
-          },
-          (error) => {
-            console.log('⚠️ GPS permission denied or unavailable:', error.message);
-            console.log('📍 Using fallback location: London, UK');
-            setLocation('London, UK');
-          },
-          { timeout: 5000, enableHighAccuracy: false } // Quick timeout to not block dashboard
-        );
-      } else {
-        console.log('⚠️ Geolocation not available in this browser');
-        setLocation('London, UK');
-      }
-    } catch (err) {
-      console.error('❌ GPS detection error:', err);
-      setLocation('London, UK');
     }
   }
 
