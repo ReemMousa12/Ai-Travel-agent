@@ -76,6 +76,62 @@ router.get('/health', async (req, res) => {
     }
 })
 
+// POST /api/database/create-profile - Create user profile on signup
+router.post('/create-profile', async (req, res) => {
+    try {
+        const { userId, email, name } = req.body
+        
+        if (!userId) {
+            return res.json({ 
+                success: false, 
+                data: null,
+                message: 'userId required'
+            })
+        }
+        
+        console.log('👤 Creating user profile:', { userId, email, name })
+        
+        const { data, error } = await getSupabase()
+            .from('user_profiles')
+            .insert([{
+                user_id: userId,
+                email: email || null,
+                name: name || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }])
+            .select()
+        
+        if (error) {
+            console.error('❌ Create profile error:', error?.message)
+            // If table doesn't exist, return success anyway
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Table not yet initialized'
+                })
+            }
+            // If profile already exists (duplicate), that's OK
+            if (error.message?.includes('duplicate') || error.code === '23505') {
+                console.log('ℹ️ Profile already exists for user:', userId)
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Profile already exists'
+                })
+            }
+            throw error
+        }
+        
+        console.log('✅ User profile created:', { userId })
+        res.json({ success: true, data: data?.[0] || null, message: 'Profile created' })
+    } catch (error) {
+        console.error('Save profile error:', error?.message)
+        res.json({ success: false, data: null, message: 'Could not create profile' })
+    }
+})
+
 // GET /api/database/trips?userId=user_123
 router.get('/trips', async (req, res) => {
     try {

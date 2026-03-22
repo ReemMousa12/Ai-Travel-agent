@@ -48,7 +48,33 @@ export const auth = {
   },
 
   async signUp(email: string, password: string) {
-    return supabase.auth.signUp({ email, password });
+    const result = await supabase.auth.signUp({ email, password });
+    
+    // Create user profile in database after signup
+    if (result.data?.user?.id) {
+      try {
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://ai-travel-agent-backend.vercel.app';
+        const response = await fetch(`${apiUrl}/api/database/create-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: result.data.user.id,
+            email: email,
+            name: email.split('@')[0]
+          })
+        });
+        const profileResult = await response.json();
+        console.log('👤 Profile creation response:', { 
+          success: profileResult.success, 
+          message: profileResult.message 
+        });
+      } catch (error) {
+        console.error('⚠️ Could not create profile (will retry on first login):', error);
+        // Don't fail signup if profile creation fails
+      }
+    }
+    
+    return result;
   },
 
   async signOut() {
