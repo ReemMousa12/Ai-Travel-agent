@@ -15,6 +15,13 @@ const router = express.Router()
 router.get('/current', async (req, res) => {
     try {
         console.log('📍 /api/location/current called');
+        
+        // Log available headers for debugging Vercel geolocation
+        console.log('📍 Request headers available:');
+        console.log('  - x-vercel-ip-timezone:', req.get('x-vercel-ip-timezone'));
+        console.log('  - x-forwarded-for:', req.get('x-forwarded-for'));
+        console.log('  - cf-connecting-ip:', req.get('cf-connecting-ip'));
+        
         const location = await detectUserLocation()
         console.log('📍 detectUserLocation returned:', location);
         if (!location) {
