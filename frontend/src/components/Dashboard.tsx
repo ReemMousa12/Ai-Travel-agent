@@ -42,19 +42,35 @@ export default function Dashboard({ userId }: DashboardProps) {
               setLocation(`${city}, ${country}`);
               setShowLocationPrompt(false);
               
-              // Save to database
+              // Save to database - BOTH tables
               console.log('💾 Saving location to database:', { userId, city, country, lat: latitude, lon: longitude });
-              const saveResult = await apiClient.saveUserPreferences(userId, {
-                locationCity: city,
-                locationCountry: country,
-                locationLat: latitude,
-                locationLon: longitude,
-              });
               
-              if (saveResult) {
-                console.log('✅ Location saved successfully to database:', saveResult);
-              } else {
-                console.warn('⚠️ Location may not have been saved (check backend logs)');
+              try {
+                // Save to user_preferences
+                console.log('📤 Saving to user_preferences...');
+                const prefResult = await apiClient.saveUserPreferences(userId, {
+                  locationCity: city,
+                  locationCountry: country,
+                  locationLat: latitude,
+                  locationLon: longitude,
+                });
+                console.log('✅ user_preferences saved:', prefResult);
+              } catch (prefErr) {
+                console.error('❌ user_preferences save failed:', prefErr);
+              }
+              
+              try {
+                // Save to user_profiles
+                console.log('📤 Saving to user_profiles...');
+                const profileResult = await apiClient.saveDetectedLocation(userId, {
+                  locationCity: city,
+                  locationCountry: country,
+                  latitude: latitude,
+                  longitude: longitude,
+                });
+                console.log('✅ user_profiles saved:', profileResult);
+              } catch (profileErr) {
+                console.error('❌ user_profiles save failed:', profileErr);
               }
             } catch (error) {
               console.error('Reverse geocoding error:', error);
@@ -100,6 +116,11 @@ export default function Dashboard({ userId }: DashboardProps) {
           console.log('🔍 No saved location, detecting from IP/GPS...');
           const locationData = await apiClient.getLocation();
           console.log('📍 Location data received:', locationData);
+          console.log('🔎 Checking condition:', {
+            error: locationData?.error,
+            city: locationData?.city,
+            conditionResult: !locationData?.error && locationData?.city
+          });
           
           if (!locationData?.error && locationData?.city) {
             console.log('🟢 ENTERING SAVE BLOCK - Condition passed');
