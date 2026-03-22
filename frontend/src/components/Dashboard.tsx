@@ -13,7 +13,7 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState('Loading...');
   const [loading, setLoading] = useState(true);
-  const [showLocationPrompt, setShowLocationPrompt] = useState(true); // Force TRUE for testing
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false); // Only show if no saved location
   const [permissionDenied, setPermissionDenied] = useState(false);
 
   useEffect(() => {
@@ -105,27 +105,43 @@ export default function Dashboard({ userId }: DashboardProps) {
 
   async function loadDashboard() {
     try {
-      // Check for saved preferences (may be null if database not deployed)
+      // PRIMARY: Check for saved preferences first
       const preferences = await apiClient.getUserPreferences(userId);
       console.log('📦 Preferences loaded:', preferences);
       console.log('📦 Has locationCity?', !!preferences?.locationCity);
-      console.log('📦 Full preferences object:', JSON.stringify(preferences, null, 2));
       
       let city = 'London';
+      let detectedLocation = null;
       
+      // If we have saved preferences with location, use those
       if (preferences?.locationCity) {
-        console.log('✓ Saved location found in user_preferences');
+        console.log('✓ Saved location found in user_preferences:', preferences.locationCity);
         city = preferences.locationCity;
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
         setShowLocationPrompt(false); // HIDE banner if location already saved
       } else {
-        console.log('ℹ️ No saved location - user needs to set it via button');
-        console.log('ℹ️ Setting showLocationPrompt to TRUE');
-        // Show the prompt so user can click to enable GPS
-        setShowLocationPrompt(true);
+        // FALLBACK: Try to get detected location from backend as alternative to saved prefs
+        console.log('ℹ️ No saved location - trying to get detected location from backend');
+        try {
+          detectedLocation = await apiClient.getLocation();
+          console.log('✅ Detected location from backend:', detectedLocation);
+          if (detectedLocation?.city && detectedLocation.city !== 'London') {
+            city = detectedLocation.city;
+            setLocation(`${detectedLocation.city}, ${detectedLocation.country}`);
+            setShowLocationPrompt(false); // Hide if detection worked
+            console.log('📍 Using detected location:', city);
+          } else {
+            console.log('ℹ️ Detection returned London (fallback) - showing GPS prompt');
+            setShowLocationPrompt(true);
+          }
+        } catch (detectionError) {
+          console.error('❌ Could not get detected location:', detectionError);
+          console.log('ℹ️ Setting showLocationPrompt to TRUE');
+          setShowLocationPrompt(true);
+        }
       }
       
-      // Load weather for the city (either saved or default London)
+      // Load weather for the city (either saved, detected, or default London)
       const weatherData = await apiClient.getWeather(city);
       setWeather(weatherData);
     } catch (error) {
