@@ -25,36 +25,42 @@ const app = express()
 
 // ====== CORS MIDDLEWARE - CRITICAL FOR VERCEL ======
 // These MUST be the first middleware applied
+// Key: Options handler must come BEFORE general middleware
 
-// Preflight handler for OPTIONS requests
-app.options('*', (req, res) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    res.header('Access-Control-Max-Age', '86400')
-    res.header('Access-Control-Allow-Credentials', 'false')
-    res.status(200).end()
-})
+// Preflight handler for OPTIONS requests - handle before everything else
+app.options('*', cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    credentials: false,
+    maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 200
+}))
 
-// Explicit CORS headers on ALL responses
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    res.header('Access-Control-Max-Age', '86400')
-    res.header('Access-Control-Allow-Credentials', 'false')
-    next()
-})
-
-// Also use cors package for additional compatibility
+// Apply CORS to all routes
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Content-Length', 'Date'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-Total-Count', 'X-Page-Count'],
     credentials: false,
-    maxAge: 86400
+    maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 200
 }))
+
+// Fallback: Explicit CORS headers to ensure they're always present
+app.use((req, res, next) => {
+    // Always set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept')
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, X-Total-Count, X-Page-Count')
+    res.setHeader('Access-Control-Max-Age', '86400')
+    res.setHeader('Access-Control-Allow-Credentials', 'false')
+    next()
+})
 
 // ====== END CORS MIDDLEWARE ======
 
@@ -126,10 +132,12 @@ app.use((err, req, res, next) => {
     console.error('❌ Server error:', err?.message || err)
     
     try {
-        // Ensure CORS headers are set even on error
-        res.header('Access-Control-Allow-Origin', '*')
-        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        // Ensure CORS headers are set even on error - use setHeader for reliability
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept')
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, X-Total-Count, X-Page-Count')
+        res.setHeader('Content-Type', 'application/json')
         
         const statusCode = err?.statusCode || err?.status || 500
         const message = err?.message || 'Internal Server Error'
@@ -138,6 +146,7 @@ app.use((err, req, res, next) => {
             success: false,
             error: 'Internal Server Error',
             message: process.env.NODE_ENV === 'development' ? message : 'An error occurred',
+            timestamp: new Date().toISOString(),
             path: req.path,
             method: req.method
         })
@@ -145,6 +154,9 @@ app.use((err, req, res, next) => {
         console.error('❌ Error handler exception:', handlerErr)
         // Attempt to send error response, but don't crash if it fails
         try {
+            // Set CORS headers one more time as fallback
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            res.setHeader('Content-Type', 'application/json')
             res.status(500).json({ error: 'Internal Server Error' })
         } catch (e) {
             console.error('❌ Unable to send error response:', e)

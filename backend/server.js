@@ -42,34 +42,40 @@ const app = express()
 const PORT = process.env.PORT || 3000
 
 // Middleware - CORS Configuration for Vercel and local development
-// Handle CORS with explicit headers for maximum compatibility
-app.use((req, res, next) => {
-    // Always set CORS headers for all requests
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept')
-    res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
-    res.header('Access-Control-Max-Age', '86400')
-    
-    // Handle preflight OPTIONS requests
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200)
-    }
-    
-    next()
-})
+// These MUST be applied FIRST before any other middleware
 
-// Also configure cors package as backup
-app.use(cors({
+// Handle preflight OPTIONS requests
+app.options('*', cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-    exposedHeaders: ['Content-Length', 'Content-Type'],
     credentials: false,
     maxAge: 86400,
     preflightContinue: false,
     optionsSuccessStatus: 200
 }))
+
+// Apply CORS middleware
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Length', 'Content-Type', 'X-Total-Count'],
+    credentials: false,
+    maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 200
+}))
+
+// Fallback explicit CORS headers for compatibility
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept')
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type, X-Total-Count')
+    res.setHeader('Access-Control-Max-Age', '86400')
+    next()
+})
 
 app.use(express.json())
 
@@ -172,9 +178,11 @@ app.use((err, req, res, next) => {
     
     try {
         // Ensure CORS headers are set for error responses
-        res.header('Access-Control-Allow-Origin', '*')
-        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept')
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type, X-Total-Count')
+        res.setHeader('Content-Type', 'application/json')
         
         const statusCode = err?.statusCode || err?.status || 500
         const message = err?.message || 'Internal Server Error'
@@ -182,14 +190,21 @@ app.use((err, req, res, next) => {
         res.status(statusCode).json({
             success: false,
             error: message,
-            message: message
+            message: message,
+            timestamp: new Date().toISOString()
         })
     } catch (handlerErr) {
         console.error('❌ Error Handler Exception:', handlerErr)
-        res.status(500).json({
-            success: false,
-            error: 'Internal Server Error'
-        })
+        try {
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            res.setHeader('Content-Type', 'application/json')
+            res.status(500).json({
+                success: false,
+                error: 'Internal Server Error'
+            })
+        } catch (e) {
+            console.error('❌ Unable to send error response:', e)
+        }
     }
 })
 
