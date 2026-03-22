@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Cloud, Wind, Droplets, RefreshCw, Plane, Hotel, Calendar } from 'lucide-react';
-import type { User } from '../lib/auth';
 import { apiClient } from '../lib/api';
 import type { WeatherData } from '../lib/api';
 import DestinationShowcase from './DestinationShowcase';
-import { FavoritesPanel } from './FavoritesPanel';
 
 interface DashboardProps {
   userId: string;
