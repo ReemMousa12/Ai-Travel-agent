@@ -6,7 +6,6 @@ import {
     getMockHotelsAndActivities,
     getLocationBasedRecommendations 
 } from '../services/location.js'
-import { testLocationServices } from '../services/basic.js'
 
 const router = express.Router()
 
@@ -73,7 +72,6 @@ router.get('/diagnose', asyncHandler(async (req, res) => {
 // Test geolocation services directly
 router.get('/test-services', asyncHandler(async (req, res) => {
     console.log('\n🧪 === TEST SERVICES ENDPOINT CALLED ===');
-    await testLocationServices()
     
     res.json({ 
         success: true,
