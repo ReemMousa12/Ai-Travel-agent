@@ -30,145 +30,137 @@ export default function Dashboard({ userId }: DashboardProps) {
     loadDashboard();
   }, [userId]);
 
-  async function requestLocationPermission() {
-    setLoading(true);
+  async function loadDashboard() {
     try {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            console.log('🟢 GPS CALLBACK STARTED');
-            const { latitude, longitude } = position.coords;
-            console.log('📍 Location permission granted:', { latitude, longitude });
-            console.log('🔑 userId available?', userId);
-            console.log('🔑 apiClient available?', !!apiClient);
-            
-            try {
-              console.log('🌐 Starting reverse geocoding...');
-              // Reverse geocode to get city/country
-              const response = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-              );
-              const data = await response.json();
-              console.log('🌐 Geocoding response:', data);
-              
-              const city = data.address?.city || data.address?.town || 'Your Location';
-              const country = data.address?.country_code?.toUpperCase() || 'EG';
-              console.log('📍 Extracted city/country:', { city, country });
-              
-              setLocation(`${city}, ${country}`);
-              setShowLocationPrompt(false);
-              
-              // Save to database - BOTH tables
-              console.log('💾 Saving location to database:', { userId, city, country, lat: latitude, lon: longitude });
-              
-              try {
-                // Save to user_preferences
-                console.log('📤 Saving to user_preferences...');
-                const prefResult = await apiClient.saveUserPreferences(userId, {
-                  locationCity: city,
-                  locationCountry: country,
-                  locationLat: latitude,
-                  locationLon: longitude,
-                });
-                console.log('✅ user_preferences saved:', prefResult);
-              } catch (prefErr) {
-                console.error('❌ user_preferences save failed:', prefErr);
-              }
-              
-              try {
-                // Save to user_profiles
-                console.log('📤 Saving to user_profiles...');
-                const profileResult = await apiClient.saveDetectedLocation(userId, {
-                  locationCity: city,
-                  locationCountry: country,
-                  latitude: latitude,
-                  longitude: longitude,
-                });
-                console.log('✅ user_profiles saved:', profileResult);
-              } catch (profileErr) {
-                console.error('❌ user_profiles save failed:', profileErr);
-              }
-            } catch (error) {
-              console.error('❌ Reverse geocoding error:', error);
-              if (error instanceof Error) {
-                console.error('Error details:', error.message);
-              }
-            } finally {
-              console.log('✅ GPS callback completed');
-              setLoading(false);
-            }
-          },
-          () => {
-            console.log('📍 Location permission denied');
-            setPermissionDenied(true);
-            setShowLocationPrompt(false);
-            setLoading(false);
-            loadDashboard(); // Fall back to IP-based or saved location
-          }
-        );
+      console.log('📊 [loadDashboard] Starting...');
+      setLoading(true);
+      
+      // STEP 1: Check for saved preferences
+      console.log('📊 [Step 1] Checking saved preferences...');
+      const preferences = await apiClient.getUserPreferences(userId);
+      console.log('📦 [Step 1] Preferences:', preferences);
+      
+      if (preferences?.locationCity) {
+        console.log('✅ [Step 1] Found saved location:', preferences.locationCity);
+        setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
+        const weatherData = await apiClient.getWeather(preferences.locationCity);
+        setWeather(weatherData);
+        setLoading(false);
+        return;
+      }
+      
+      // STEP 2: No saved location, try GPS
+      console.log('📊 [Step 2] No saved location, attempting GPS...');
+      const gpsLocation = await tryGPSDetection();
+      
+      if (gpsLocation) {
+        console.log('✅ [Step 2] GPS succeeded:', gpsLocation);
+        setLocation(`${gpsLocation.city}, ${gpsLocation.country}`);
+        const weatherData = await apiClient.getWeather(gpsLocation.city);
+        setWeather(weatherData);
+        setLoading(false);
+        return;
+      }
+      
+      // STEP 3: GPS denied/failed, try IP detection
+      console.log('📊 [Step 3] GPS failed, trying IP detection...');
+      const ipLocation = await apiClient.getLocation();
+      console.log('📊 [Step 3] IP detection result:', ipLocation);
+      
+      if (ipLocation?.city && ipLocation.city !== 'London') {
+        console.log('✅ [Step 3] IP detection succeeded:', ipLocation.city);
+        setLocation(`${ipLocation.city}, ${ipLocation.country}`);
+        const weatherData = await apiClient.getWeather(ipLocation.city);
+        setWeather(weatherData);
+      } else {
+        console.log('⚠️ [Step 3] IP detection returned London (fallback)');
+        setLocation('London, GB');
+        setShowLocationPrompt(true); // Show GPS button as option
+        const weatherData = await apiClient.getWeather('London');
+        setWeather(weatherData);
       }
     } catch (error) {
-      console.error('Location request error:', error);
+      console.error('❌ [loadDashboard] Error:', error);
+      setLocation('London, GB');
+    } finally {
       setLoading(false);
     }
   }
 
-  async function loadDashboard() {
-    try {
-      console.log('📊 [loadDashboard] Starting for userId:', userId);
-      
-      // PRIMARY: Check for saved preferences first
-      const preferences = await apiClient.getUserPreferences(userId);
-      console.log('📦 [loadDashboard] Preferences loaded:', preferences);
-      console.log('📦 [loadDashboard] Has locationCity?', !!preferences?.locationCity);
-      
-      let city = 'London';
-      
-      if (preferences?.locationCity) {
-        console.log('✓ [loadDashboard] Using saved location:', preferences.locationCity);
-        city = preferences.locationCity;
-        const displayLocation = `${preferences.locationCity}, ${preferences.locationCountry}`;
-        console.log('📍 [setLocation] Setting to saved:', displayLocation);
-        setLocation(displayLocation);
-        setShowLocationPrompt(false);
-      } else {
-        // FALLBACK: Try to get detected location from backend as alternative to saved prefs
-        console.log('ℹ️ [loadDashboard] No saved location - trying detected location');
-        try {
-          const detectedLocation = await apiClient.getLocation();
-          console.log('✅ [loadDashboard] Backend detected:', detectedLocation);
-          
-          if (detectedLocation?.city && detectedLocation.city !== 'London') {
-            city = detectedLocation.city;
-            const displayLocation = `${detectedLocation.city}, ${detectedLocation.country}`;
-            console.log('📍 [setLocation] Setting to detected:', displayLocation);
-            setLocation(displayLocation);
-            setShowLocationPrompt(false);
-          } else {
-            console.log('⚠️ [loadDashboard] Detection returned London or no city - showing GPS prompt');
-            console.log('📍 [setLocation] Setting to default:', 'London, GB');
-            setLocation('London, GB');
-            setShowLocationPrompt(true);
-          }
-        } catch (detectionError) {
-          console.error('❌ [loadDashboard] Detection error:', detectionError);
-          console.log('📍 [setLocation] Setting to default due to error:', 'London, GB');
-          setLocation('London, GB');
-          setShowLocationPrompt(true);
-        }
+  async function tryGPSDetection(): Promise<{ city: string; country: string } | null> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.log('❌ Geolocation not supported');
+        resolve(null);
+        return;
       }
-      
-      // Load weather for the city
-      console.log('🌤️ [loadDashboard] Loading weather for:', city);
-      const weatherData = await apiClient.getWeather(city);
+
+      console.log('📍 Requesting GPS permission...');
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            console.log('🟢 GPS GRANTED - coordinates:', position.coords);
+            const { latitude, longitude } = position.coords;
+
+            // Reverse geocode
+            console.log('🌐 Reverse geocoding...');
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            );
+            const data = await response.json();
+            console.log('🌐 Geocoding result:', data);
+
+            const city = data.address?.city || data.address?.town || null;
+            const country = data.address?.country_code?.toUpperCase() || null;
+
+            if (city && country) {
+              console.log('✅ Geocoding succeeded:', { city, country });
+              // Save to database
+              await apiClient.saveUserPreferences(userId, {
+                locationCity: city,
+                locationCountry: country,
+                locationLat: latitude,
+                locationLon: longitude,
+              });
+              console.log('💾 Saved to database');
+              resolve({ city, country });
+            } else {
+              console.log('❌ Geocoding failed - no city/country');
+              resolve(null);
+            }
+          } catch (error) {
+            console.error('❌ GPS geocoding error:', error);
+            resolve(null);
+          }
+        },
+        (error) => {
+          console.log('🚫 GPS DENIED or ERROR:', error.message);
+          setPermissionDenied(true);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  }
+
+  async function requestLocationPermission() {
+    console.log('🔄 Manual GPS request triggered');
+    setLoading(true);
+    const gpsLocation = await tryGPSDetection();
+    
+    if (gpsLocation) {
+      setLocation(`${gpsLocation.city}, ${gpsLocation.country}`);
+      setShowLocationPrompt(false);
+      const weatherData = await apiClient.getWeather(gpsLocation.city);
       setWeather(weatherData);
-      console.log('📊 [loadDashboard] Complete - location:', city);
-    } catch (error) {
-      console.error('❌ [loadDashboard] Error:', error);
-      setLocation('London, UK');
-    } finally {
-      setLoading(false);
+    } else {
+      console.log('GPS still failed after retry');
     }
+    setLoading(false);
   }
 
   async function updateLocation() {
