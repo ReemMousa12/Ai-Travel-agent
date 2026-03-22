@@ -227,6 +227,15 @@ router.get('/user-preferences', async (req, res) => {
             })
         }
         
+        // Map database field names back to frontend field names
+        if (data) {
+            data.locationCity = data.current_location
+            data.locationCountry = data.current_country
+            data.locationLat = data.latitude
+            data.locationLon = data.longitude
+            console.log('✅ Returning mapped preferences:', data)
+        }
+        
         res.json({ success: true, data: data || null })
     } catch (error) {
         console.error('Get preferences error:', error?.message)
