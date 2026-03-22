@@ -235,6 +235,18 @@ router.get('/user-preferences', asyncHandler(async (req, res) => {
     }
     
     const client = getSupabase()
+    
+    // Return error if Supabase is not configured
+    if (!client) {
+        console.warn('⚠️ Supabase not configured - database service unavailable')
+        return res.status(503).json({
+            success: false,
+            error: 'Database service unavailable',
+            message: 'Supabase credentials not configured',
+            data: null
+        })
+    }
+    
     const { data, error } = await client
         .from('user_preferences')
         .select('*')

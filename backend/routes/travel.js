@@ -1,5 +1,6 @@
 import express from 'express'
 import https from 'https'
+import { Groq } from 'groq-sdk'
 import { searchFlights, searchHotels, searchActivities, searchRestaurants } from '../services/travel.js'
 import { getCurrentWeather, getLocation } from '../services/basic.js'
 
@@ -20,11 +21,28 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 // Initialize Groq client lazily
 let groq = null
+let groqError = null
+
 function getGroq() {
-    if (!groq && process.env.GROQ_API_KEY) {
-        groq = new Groq({
-            apiKey: process.env.GROQ_API_KEY
-        })
+    if (groqError) {
+        return null
+    }
+    
+    if (!groq) {
+        const apiKey = process.env.GROQ_API_KEY
+        if (!apiKey) {
+            groqError = new Error('GROQ_API_KEY not configured')
+            console.warn('⚠️ GROQ_API_KEY not set - AI features disabled')
+            return null
+        }
+        
+        try {
+            groq = new Groq({ apiKey })
+        } catch (error) {
+            groqError = error
+            console.error('❌ Failed to initialize Groq:', error?.message)
+            return null
+        }
     }
     return groq
 }
@@ -283,45 +301,126 @@ router.get('/trending', asyncHandler(async (req, res) => {
         fetchHotelDealsWithAI(location)
     ])
     
-    // If APIs fail, use AI as fallback
+    // If APIs fail, use AI as fallback (if Groq available) or static fallback
     if (deals.length === 0 && destinations.length === 0) {
-        console.log('APIs failed, using AI fallback')
-        const aiPrompt = `Provide 4 real trending destinations and 4 real hotel deals near ${location} in JSON format with structure: {"destinations": [{"name": "City, Country", "price": 150, "rating": 4.8, "desc": "description"}], "deals": [{"name": "Hotel Name", "location": "City, Country", "price": 120, "oldPrice": 180, "rating": 4.5, "reviews": 150}]}`
+        console.log('APIs failed, attempting fallback...')
+        const groqClient = getGroq()
         
-        const completion = await getGroq()?.chat.completions.create({
-            messages: [{ role: 'user', content: aiPrompt }],
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.7,
-            max_tokens: 2000,
-        })
+        if (groqClient) {
+            try {
+                const aiPrompt = `Provide 4 real trending destinations and 4 real hotel deals near ${location} in JSON format with structure: {"destinations": [{"name": "City, Country", "price": 150, "rating": 4.8, "desc": "description"}], "deals": [{"name": "Hotel Name", "location": "City, Country", "price": 120, "oldPrice": 180, "rating": 4.5, "reviews": 150}]}`
+                
+                const completion = await groqClient.chat.completions.create({
+                    messages: [{ role: 'user', content: aiPrompt }],
+                    model: 'llama-3.3-70b-versatile',
+                    temperature: 0.7,
+                    max_tokens: 2000,
+                })
+                
+                let response = completion.choices[0]?.message?.content || '{}'
+                response = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+                const aiData = JSON.parse(response)
+                
+                if (aiData.destinations?.length > 0) {
+                    destinations.push(...aiData.destinations.slice(0, 4))
+                }
+                if (aiData.deals?.length > 0) {
+                    deals.push(...aiData.deals.slice(0, 4))
+                }
+            } catch (aiError) {
+                console.warn('AI fallback failed, using static data:', aiError?.message)
+            }
+        } else {
+            console.warn('Groq not available, using static fallback data')
+        }
         
-        let response = completion.choices[0]?.message?.content || '{}'
-        response = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-        const aiData = JSON.parse(response)
+        // If still no data, use static fallback
+        if (destinations.length === 0 && deals.length === 0) {
+            console.log('Using static fallback destinations and deals')
+            destinations.push({
+                name: 'Paris, France',
+                price: 180,
+                rating: 4.8,
+                desc: 'City of light with iconic Eiffel Tower and world-class museums',
+                image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800'
+            },
+            {
+                name: 'Barcelona, Spain',
+                price: 160,
+                rating: 4.7,
+                desc: 'Mediterranean city with Gaudí architecture and vibrant culture',
+                image: 'https://images.unsplash.com/photo-1562883676-8c5dcd2235bf?w=800'
+            },
+            {
+                name: 'Rome, Italy',
+                price: 150,
+                rating: 4.9,
+                desc: 'Ancient history meets modern charm in the Eternal City',
+                image: 'https://images.unsplash.com/photo-1552832860-cfaf4901900d?w=800'
+            },
+            {
+                name: 'Amsterdam, Netherlands',
+                price: 140,
+                rating: 4.6,
+                desc: 'Canals, museums, and cycling through charming streets',
+                image: 'https://images.unsplash.com/photo-1534530173927-c7fb627b20bd?w=800'
+            })
+            
+            deals.push({
+                name: 'Hotel Europa',
+                location: 'Paris, France',
+                price: 95,
+                oldPrice: 140,
+                rating: 4.5,
+                reviews: 320,
+                image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'
+            },
+            {
+                name: 'Barcelona Plaza',
+                location: 'Barcelona, Spain',
+                price: 110,
+                oldPrice: 160,
+                rating: 4.4,
+                reviews: 280,
+                image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800'
+            },
+            {
+                name: 'Colosseum View',
+                location: 'Rome, Italy',
+                price: 105,
+                oldPrice: 155,
+                rating: 4.7,
+                reviews: 450,
+                image: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800'
+            },
+            {
+                name: 'Canal House Amsterdam',
+                location: 'Amsterdam, Netherlands',
+                price: 120,
+                oldPrice: 170,
+                rating: 4.3,
+                reviews: 200,
+                image: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800'
+            })
+        }
         
-        // Add fallback images
-        const fallbackDestinations = [
+        // Add fallback images to remaining items if needed
+        const fallbackDestinationImages = [
             'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800',
             'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
             'https://images.unsplash.com/photo-1534008757030-27299c4371b6?w=800',
             'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800'
         ]
         
-        const fallbackHotels = [
+        const fallbackHotelImages = [
             'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
             'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
             'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800',
             'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800'
         ]
         
-        if (aiData.destinations) {
-            aiData.destinations = aiData.destinations.map((d, i) => ({ ...d, image: fallbackDestinations[i % 4] }))
-        }
-        if (aiData.deals) {
-            aiData.deals = aiData.deals.map((d, i) => ({ ...d, image: fallbackHotels[i % 4] }))
-        }
-        
-        return res.json(aiData)
+        destinations.forEach((d, i) => { if (!d.image) d.image = fallbackDestinationImages[i % 4] })
+        deals.forEach((d, i) => { if (!d.image) d.image = fallbackHotelImages[i % 4] })
     }
     
     res.json({ success: true, destinations, deals })

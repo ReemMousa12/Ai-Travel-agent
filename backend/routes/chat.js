@@ -19,26 +19,57 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 // Initialize Groq client lazily to ensure env vars are loaded
 let groq = null
+let groqError = null
+
 function getGroq() {
+    if (groqError) {
+        return null  // Return null instead of throwing
+    }
+    
     if (!groq) {
-        if (!process.env.GROQ_API_KEY) {
-            throw new Error('GROQ_API_KEY is not set in environment variables')
+        const apiKey = process.env.GROQ_API_KEY
+        if (!apiKey) {
+            groqError = new Error('GROQ_API_KEY not configured')
+            console.warn('⚠️ GROQ_API_KEY not set - Chat service unavailable')
+            return null
         }
-        groq = new Groq({
-            apiKey: process.env.GROQ_API_KEY
-        })
+        try {
+            groq = new Groq({ apiKey })
+        } catch (error) {
+            groqError = error
+            console.error('❌ Failed to initialize Groq:', error?.message)
+            return null
+        }
     }
     return groq
 }
 
-// Initialize Supabase client
+// Initialize Supabase client lazily
 let supabase = null
+let supabaseError = null
+
 function getSupabase() {
+    if (supabaseError) {
+        return null  // Return null instead of throwing
+    }
+    
     if (!supabase) {
-        supabase = createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_ANON_KEY
-        )
+        const url = process.env.SUPABASE_URL
+        const key = process.env.SUPABASE_ANON_KEY
+        
+        if (!url || !key) {
+            supabaseError = new Error('Missing Supabase credentials')
+            console.warn('⚠️ Supabase credentials not configured - Database service unavailable')
+            return null
+        }
+        
+        try {
+            supabase = createClient(url, key)
+        } catch (error) {
+            supabaseError = error
+            console.error('❌ Failed to initialize Supabase:', error?.message)
+            return null
+        }
     }
     return supabase
 }
@@ -52,35 +83,40 @@ router.post('/', asyncHandler(async (req, res) => {
     let userName = providedUserName || '' // Use provided userName from request
     if (userId) {
         try {
-            const { data } = await getSupabase()
-                .from('user_preferences')
-                .select('*')
-                .eq('user_id', userId)
-                .single()
-            
-            if (data) {
-                if (data.location_city) {
-                    locationContext = `\n\nUser's current location: ${data.location_city}, ${data.location_country}`
-                }
-                // Only override with database name if no name was provided in request
-                if (!userName && data.user_name) {
-                    userName = data.user_name
-                }
-            }
-            
-            // Save the userName to database if provided and not already saved
-            if (providedUserName && (!data || !data.user_name)) {
-                await getSupabase()
+            const supabaseClient = getSupabase()
+            if (!supabaseClient) {
+                console.warn('⚠️ Supabase not available - skipping preferences')
+            } else {
+                const { data } = await supabaseClient
                     .from('user_preferences')
-                    .upsert([{ 
-                        user_id: userId, 
-                        user_name: providedUserName,
-                        updated_at: new Date().toISOString()
-                    }], { onConflict: 'user_id' })
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single()
+                
+                if (data) {
+                    if (data.location_city) {
+                        locationContext = `\n\nUser's current location: ${data.location_city}, ${data.location_country}`
+                    }
+                    // Only override with database name if no name was provided in request
+                    if (!userName && data.user_name) {
+                        userName = data.user_name
+                    }
+                }
+                
+                // Save the userName to database if provided and not already saved
+                if (providedUserName && (!data || !data.user_name)) {
+                    await supabaseClient
+                        .from('user_preferences')
+                        .upsert([{ 
+                            user_id: userId, 
+                            user_name: providedUserName,
+                            updated_at: new Date().toISOString()
+                        }], { onConflict: 'user_id' })
+                }
             }
         } catch (error) {
             // Ignore error if no preferences found
-            console.log('No user preferences found')
+            console.log('No user preferences found or database unavailable')
         }
     }
 
@@ -114,20 +150,35 @@ router.post('/', asyncHandler(async (req, res) => {
     // Save user message to chat history
     if (userId && message) {
         try {
-            await getSupabase()
-                .from('chat_history')
-                .insert([{
-                    user_id: userId,
-                    role: 'user',
-                    content: message,
-                    session_id: sessionId || new Date().toISOString().split('T')[0]
-                }])
+            const supabaseClient = getSupabase()
+            if (supabaseClient) {
+                await supabaseClient
+                    .from('chat_history')
+                    .insert([{
+                        user_id: userId,
+                        role: 'user',
+                        content: message,
+                        session_id: sessionId || new Date().toISOString().split('T')[0]
+                    }])
+            }
         } catch (error) {
             console.error('Error saving user message to history:', error)
         }
     }
 
-    const chatCompletion = await getGroq().chat.completions.create({
+    // Check if Groq is available before attempting to use it
+    const groqClient = getGroq()
+    if (!groqClient) {
+        console.error('❌ Groq client not available - missing GROQ_API_KEY')
+        return res.status(503).json({
+            success: false,
+            error: 'Chat service unavailable',
+            message: 'GROQ_API_KEY not configured on server',
+            statusCode: 503
+        })
+    }
+
+    const chatCompletion = await groqClient.chat.completions.create({
         messages: chatMessages,
         model,
         temperature: 0.7,
@@ -139,14 +190,17 @@ router.post('/', asyncHandler(async (req, res) => {
     // Save assistant message to chat history
     if (userId) {
         try {
-            await getSupabase()
-                .from('chat_history')
-                .insert([{
-                    user_id: userId,
-                    role: 'assistant',
-                    content: assistantMessage,
-                    session_id: sessionId || new Date().toISOString().split('T')[0]
-                }])
+            const supabaseClient = getSupabase()
+            if (supabaseClient) {
+                await supabaseClient
+                    .from('chat_history')
+                    .insert([{
+                        user_id: userId,
+                        role: 'assistant',
+                        content: assistantMessage,
+                        session_id: sessionId || new Date().toISOString().split('T')[0]
+                    }])
+            }
         } catch (error) {
             console.error('Error saving assistant message to history:', error)
         }
