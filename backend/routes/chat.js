@@ -47,8 +47,14 @@ router.post('/', async (req, res) => {
                     .single()
                 
                 if (data) {
-                    if (data.location_city) {
-                        locationContext = `\n\nUser's current location: ${data.location_city}, ${data.location_country}`
+                    // Check for current_location and current_country (snake_case in database)
+                    if (data.current_location && data.current_country) {
+                        let locDetails = `User's current location: ${data.current_location}, ${data.current_country}`;
+                        if (data.latitude && data.longitude) {
+                            locDetails += ` (Coordinates: ${data.latitude}, ${data.longitude})`;
+                        }
+                        locationContext = `\n\n${locDetails}. Use this location to provide personalized travel recommendations, nearby attractions, weather, and local information.`;
+                        console.log('✅ Location context loaded:', locDetails);
                     }
                     // Only override with database name if no name was provided in request
                     if (!userName && data.user_name) {
@@ -68,7 +74,7 @@ router.post('/', async (req, res) => {
                 }
             } catch (error) {
                 // Ignore error if no preferences found
-                console.log('No user preferences found')
+                console.log('ℹ️ No user preferences found, location detection skipped')
             }
         }
 
@@ -79,8 +85,12 @@ router.post('/', async (req, res) => {
         } else if (message) {
             // Convert single message to messages array
             const systemPrompt = userName 
-                ? `You are a helpful AI travel assistant. The user's name is ${userName}. Help them plan trips, answer travel questions, and provide personalized recommendations. Use their name naturally in conversation.${locationContext}`
-                : `You are a helpful AI travel assistant. Help users plan their trips, answer travel questions, and provide recommendations. If you don't know the user's name yet, politely ask for it in a friendly way during the conversation.${locationContext}`
+                ? `You are a helpful AI travel assistant. The user's name is ${userName}.${locationContext}
+
+Help them plan trips, answer travel questions, and provide personalized recommendations. Use their name naturally in conversation. When asked about their location or nearby places, refer to the location context provided above. Provide relevant information about their area including attractions, weather insights, and travel opportunities.`
+                : `You are a helpful AI travel assistant.${locationContext}
+
+Help users plan their trips, answer travel questions, and provide recommendations. When asked about their location, refer to the location context above. If you don't know the user's name yet, politely ask for it in a friendly way during the conversation.`
             
             chatMessages = [
                 {
