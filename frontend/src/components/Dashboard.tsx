@@ -79,24 +79,32 @@ export default function Dashboard({ userId }: DashboardProps) {
     try {
       // Check for saved preferences (may be null if database not deployed)
       const preferences = await apiClient.getUserPreferences(userId);
+      console.log('📦 Preferences loaded:', preferences);
       
       let city = 'London';
       let locationSet = false;
       
       if (preferences?.locationCity) {
+        console.log('✓ Saved location found in user_preferences');
         city = preferences.locationCity;
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
         locationSet = true;
+      } else {
+        console.log('ℹ️ No saved location in user_preferences, will detect...');
       }
       
       // If no saved preferences, try to detect location
       if (!locationSet) {
+        console.log('🟡 ENTERING DETECTION BLOCK (locationSet = false)');
         try {
           console.log('🔍 No saved location, detecting from IP/GPS...');
           const locationData = await apiClient.getLocation();
           console.log('📍 Location data received:', locationData);
           
           if (!locationData?.error && locationData?.city) {
+            console.log('🟢 ENTERING SAVE BLOCK - Condition passed');
+            console.log('   locationData.error:', locationData?.error);
+            console.log('   locationData.city:', locationData?.city);
             city = locationData.city;
             setLocation(`${locationData.city}, ${locationData.country}`);
             
