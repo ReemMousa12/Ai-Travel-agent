@@ -550,23 +550,29 @@ class ApiClient {
     longitude?: number;
   }) {
     try {
-      console.log('📍 Saving detected location to profile:', { userId, ...locationData });
+      const requestBody = { userId, ...locationData };
+      console.log('📍 Saving detected location to profile:', requestBody);
+      console.log(`📤 POST to: ${API_BASE_URL}/api/database/user-location`);
+      
       const response = await fetch(`${API_BASE_URL}/api/database/user-location`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...locationData }),
+        body: JSON.stringify(requestBody),
       });
       
       const result = await response.json();
+      console.log(`📥 Response status: ${response.status}, ok: ${response.ok}`);
+      console.log('📥 Response body:', result);
+      
       if (!response.ok) {
-        console.error(`Failed to save location: ${response.status}`, result);
+        console.error(`❌ Failed to save location: ${response.status}`, result);
         return null;
       }
       
-      console.log('✅ Location saved:', result.data);
+      console.log('✅ Location saved successfully:', result.data);
       return result.data || null;
     } catch (error) {
-      console.error('Error saving location:', error);
+      console.error('❌ Error saving location:', error);
       return null;
     }
   }

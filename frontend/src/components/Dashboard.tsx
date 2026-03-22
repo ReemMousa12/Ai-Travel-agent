@@ -101,27 +101,38 @@ export default function Dashboard({ userId }: DashboardProps) {
             setLocation(`${locationData.city}, ${locationData.country}`);
             
             // Save detected location to both tables
-            console.log('💾 Attempting to save detected location...');
-            await Promise.all([
+            console.log('💾 Attempting to save detected location to both tables...');
+            console.log('   userId:', userId);
+            console.log('   locationCity:', locationData.city);
+            console.log('   locationCountry:', locationData.country);
+            
+            try {
               // Save to user_preferences
-              apiClient.saveUserPreferences(userId, {
+              console.log('📤 Saving to user_preferences...');
+              const prefResult = await apiClient.saveUserPreferences(userId, {
                 locationCity: locationData.city,
                 locationCountry: locationData.country,
                 locationLat: locationData.latitude,
                 locationLon: locationData.longitude,
-              }),
+              });
+              console.log('✅ user_preferences saved:', prefResult);
+            } catch (prefErr) {
+              console.error('❌ user_preferences save failed:', prefErr);
+            }
+            
+            try {
               // Save to user_profiles (current location)
-              apiClient.saveDetectedLocation(userId, {
+              console.log('📤 Saving to user_profiles...');
+              const profileResult = await apiClient.saveDetectedLocation(userId, {
                 locationCity: locationData.city,
                 locationCountry: locationData.country,
                 latitude: locationData.latitude,
                 longitude: locationData.longitude,
-              })
-            ]).then(([prefResult, profileResult]) => {
-              console.log('✅ Location saved:', { preferences: prefResult, profile: profileResult });
-            }).catch(err => {
-              console.error('❌ Error saving location:', err);
-            });
+              });
+              console.log('✅ user_profiles saved:', profileResult);
+            } catch (profileErr) {
+              console.error('❌ user_profiles save failed:', profileErr);
+            }
           } else {
             console.warn('⚠️ Invalid location data:', locationData);
             setLocation('London, UK');
