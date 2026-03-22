@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Cloud, Wind, Droplets, RefreshCw, Plane, Hotel, Calendar } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -15,8 +15,18 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false); // Only show if no saved location
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const loadedRef = useRef(false); // Prevent duplicate loads
 
   useEffect(() => {
+    console.log('🔄 Dashboard useEffect triggered for userId:', userId);
+    
+    // Prevent double loading in React Strict Mode
+    if (loadedRef.current) {
+      console.log('⚠️ Dashboard already loaded, skipping');
+      return;
+    }
+    
+    loadedRef.current = true;
     loadDashboard();
   }, [userId]);
 
@@ -105,47 +115,56 @@ export default function Dashboard({ userId }: DashboardProps) {
 
   async function loadDashboard() {
     try {
+      console.log('📊 [loadDashboard] Starting for userId:', userId);
+      
       // PRIMARY: Check for saved preferences first
       const preferences = await apiClient.getUserPreferences(userId);
-      console.log('📦 Preferences loaded:', preferences);
-      console.log('📦 Has locationCity?', !!preferences?.locationCity);
+      console.log('📦 [loadDashboard] Preferences loaded:', preferences);
+      console.log('📦 [loadDashboard] Has locationCity?', !!preferences?.locationCity);
       
       let city = 'London';
-      let detectedLocation = null;
       
-      // If we have saved preferences with location, use those
       if (preferences?.locationCity) {
-        console.log('✓ Saved location found in user_preferences:', preferences.locationCity);
+        console.log('✓ [loadDashboard] Using saved location:', preferences.locationCity);
         city = preferences.locationCity;
-        setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
-        setShowLocationPrompt(false); // HIDE banner if location already saved
+        const displayLocation = `${preferences.locationCity}, ${preferences.locationCountry}`;
+        console.log('📍 [setLocation] Setting to saved:', displayLocation);
+        setLocation(displayLocation);
+        setShowLocationPrompt(false);
       } else {
         // FALLBACK: Try to get detected location from backend as alternative to saved prefs
-        console.log('ℹ️ No saved location - trying to get detected location from backend');
+        console.log('ℹ️ [loadDashboard] No saved location - trying detected location');
         try {
-          detectedLocation = await apiClient.getLocation();
-          console.log('✅ Detected location from backend:', detectedLocation);
+          const detectedLocation = await apiClient.getLocation();
+          console.log('✅ [loadDashboard] Backend detected:', detectedLocation);
+          
           if (detectedLocation?.city && detectedLocation.city !== 'London') {
             city = detectedLocation.city;
-            setLocation(`${detectedLocation.city}, ${detectedLocation.country}`);
-            setShowLocationPrompt(false); // Hide if detection worked
-            console.log('📍 Using detected location:', city);
+            const displayLocation = `${detectedLocation.city}, ${detectedLocation.country}`;
+            console.log('📍 [setLocation] Setting to detected:', displayLocation);
+            setLocation(displayLocation);
+            setShowLocationPrompt(false);
           } else {
-            console.log('ℹ️ Detection returned London (fallback) - showing GPS prompt');
+            console.log('⚠️ [loadDashboard] Detection returned London or no city - showing GPS prompt');
+            console.log('📍 [setLocation] Setting to default:', 'London, GB');
+            setLocation('London, GB');
             setShowLocationPrompt(true);
           }
         } catch (detectionError) {
-          console.error('❌ Could not get detected location:', detectionError);
-          console.log('ℹ️ Setting showLocationPrompt to TRUE');
+          console.error('❌ [loadDashboard] Detection error:', detectionError);
+          console.log('📍 [setLocation] Setting to default due to error:', 'London, GB');
+          setLocation('London, GB');
           setShowLocationPrompt(true);
         }
       }
       
-      // Load weather for the city (either saved, detected, or default London)
+      // Load weather for the city
+      console.log('🌤️ [loadDashboard] Loading weather for:', city);
       const weatherData = await apiClient.getWeather(city);
       setWeather(weatherData);
+      console.log('📊 [loadDashboard] Complete - location:', city);
     } catch (error) {
-      console.error('Dashboard error:', error);
+      console.error('❌ [loadDashboard] Error:', error);
       setLocation('London, UK');
     } finally {
       setLoading(false);
