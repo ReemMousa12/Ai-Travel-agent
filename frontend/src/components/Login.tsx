@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { Mail, Lock, LogIn, MapPin } from 'lucide-react';
 import { auth } from '../lib/auth';
 
 interface LoginProps {
@@ -13,24 +13,41 @@ export default function Login({ onLogin }: LoginProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [locationPrompt, setLocationPrompt] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setLocationPrompt(false);
 
     try {
       if (isSignUp) {
-        const { error } = await auth.signUp(email, password);
-        if (error) throw error;
-        alert('Check your email for confirmation link!');
+        console.log('Starting signup process...');
+        const { error: signupError } = await auth.signUp(email, password);
+        if (signupError) throw signupError;
+        
+        // Show location permission info after signup
+        setLocationPrompt(true);
+        setTimeout(() => {
+          alert('Check your email for confirmation link! We\'re also detecting your location to provide personalized travel recommendations.');
+          setLocationPrompt(false);
+        }, 500);
       } else {
-        const { error } = await auth.signIn(email, password);
-        if (error) throw error;
-        onLogin();
+        console.log('Starting sign in process...');
+        const { error: signinError } = await auth.signIn(email, password);
+        if (signinError) throw signinError;
+        
+        // Show location permission info after signin
+        setLocationPrompt(true);
+        setTimeout(() => {
+          console.log('Sign in successful, calling onLogin');
+          onLogin();
+        }, 500);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
+      setLocationPrompt(false);
     } finally {
       setLoading(false);
     }
@@ -59,6 +76,21 @@ export default function Login({ onLogin }: LoginProps) {
               Your AI-powered travel companion
             </p>
           </div>
+
+          {/* Location Permission Info */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm flex items-start gap-3"
+          >
+            <MapPin size={18} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium mb-1">📍 We'll detect your location</p>
+              <p className="text-xs">
+                To provide personalized travel recommendations, we'll ask for permission to access your location. This helps us suggest nearby destinations and local information.
+              </p>
+            </div>
+          </motion.div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -102,6 +134,17 @@ export default function Login({ onLogin }: LoginProps) {
                 className="p-3 rounded-lg bg-red-50 text-red-600 text-sm"
               >
                 {error}
+              </motion.div>
+            )}
+
+            {locationPrompt && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 rounded-lg bg-yellow-50 text-yellow-700 text-sm flex items-center gap-2"
+              >
+                <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                Detecting your location...
               </motion.div>
             )}
 

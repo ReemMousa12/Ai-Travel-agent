@@ -124,6 +124,27 @@ router.post('/create-profile', async (req, res) => {
             throw error
         }
         
+        // Also create/initialize user_preferences record for storing location
+        try {
+            console.log('📍 Initializing user preferences for location tracking...');
+            const { error: prefError } = await getSupabase()
+                .from('user_preferences')
+                .upsert([{
+                    user_id: userId,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }], { onConflict: 'user_id' })
+            
+            if (prefError) {
+                console.warn('⚠️ Could not initialize preferences:', prefError?.message);
+                // Don't fail profile creation if preferences initialization fails
+            } else {
+                console.log('✅ User preferences initialized for location tracking');
+            }
+        } catch (prefError) {
+            console.warn('⚠️ Exception during preferences initialization:', prefError?.message);
+        }
+        
         console.log('✅ User profile created:', { userId })
         res.json({ success: true, data: data?.[0] || null, message: 'Profile created' })
     } catch (error) {
@@ -267,10 +288,22 @@ router.post('/user-preferences', async (req, res) => {
         }
         
         // Map frontend field names to database schema field names
-        if (preferences?.locationCity !== undefined) updateData.current_location = preferences.locationCity
-        if (preferences?.locationCountry !== undefined) updateData.current_country = preferences.locationCountry
-        if (preferences?.locationLat !== undefined) updateData.latitude = preferences.locationLat
-        if (preferences?.locationLon !== undefined) updateData.longitude = preferences.locationLon
+        if (preferences?.locationCity !== undefined) {
+            updateData.current_location = preferences.locationCity
+            console.log('📍 Setting location city:', preferences.locationCity);
+        }
+        if (preferences?.locationCountry !== undefined) {
+            updateData.current_country = preferences.locationCountry
+            console.log('📍 Setting location country:', preferences.locationCountry);
+        }
+        if (preferences?.locationLat !== undefined) {
+            updateData.latitude = preferences.locationLat
+            console.log('📍 Setting latitude:', preferences.locationLat);
+        }
+        if (preferences?.locationLon !== undefined) {
+            updateData.longitude = preferences.locationLon
+            console.log('📍 Setting longitude:', preferences.locationLon);
+        }
         if (preferences?.travelStyle !== undefined) updateData.preferred_travel_style = preferences.travelStyle
         if (preferences?.budget !== undefined) updateData.preferred_budget = preferences.budget
         if (preferences?.activities !== undefined) updateData.preferred_activities = preferences.activities
@@ -279,7 +312,11 @@ router.post('/user-preferences', async (req, res) => {
         if (preferences?.groupType !== undefined) updateData.group_type = preferences.groupType
         
         // Log what we're about to save
-        console.log('💾 Saving user preferences:', { userId, updateData });
+        console.log('💾 Saving user preferences:', { 
+            userId, 
+            location: { city: updateData.current_location, country: updateData.current_country, lat: updateData.latitude, lon: updateData.longitude },
+            preferences
+        });
         
         const { data, error } = await getSupabase()
             .from('user_preferences')
@@ -307,8 +344,13 @@ router.post('/user-preferences', async (req, res) => {
             })
         }
         
-        console.log('✅ User preferences saved successfully:', { userId, current_location: updateData.current_location, current_country: updateData.current_country });
-        res.json({ success: true, data: data?.[0] || null })
+        const savedLocation = `${updateData.current_location || 'Not set'}, ${updateData.current_country || 'Not set'}`;
+        console.log('✅ User preferences saved successfully:', { 
+            userId, 
+            location: savedLocation,
+            coordinates: { lat: updateData.latitude, lon: updateData.longitude }
+        });
+        res.json({ success: true, data: data?.[0] || null, message: 'Preferences saved successfully' })
     } catch (error) {
         console.error('❌ Unexpected error in save preferences:', error?.message);
         res.json({ 

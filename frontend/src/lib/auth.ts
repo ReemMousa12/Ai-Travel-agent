@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { requestLocationPermission } from './location';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -18,6 +19,39 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export interface User {
   id: string;
   email: string;
+}
+
+/**
+ * Save user's detected location to the database
+ */
+async function saveLocationToDatabase(userId: string, location: any): Promise<void> {
+  try {
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://ai-travel-agent-backend.vercel.app';
+    console.log('📍 Saving location to database:', { userId, location });
+    
+    const response = await fetch(`${apiUrl}/api/database/user-preferences`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        preferences: {
+          locationCity: location.city,
+          locationCountry: location.country,
+          locationLat: location.latitude,
+          locationLon: location.longitude
+        }
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      console.log('✅ Location saved to database:', result.data);
+    } else {
+      console.warn('⚠️ Failed to save location:', result.message);
+    }
+  } catch (error) {
+    console.error('❌ Error saving location to database:', error);
+  }
 }
 
 export const auth = {
@@ -44,13 +78,29 @@ export const auth = {
   },
 
   async signIn(email: string, password: string) {
-    return supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    
+    // Detect and save location after successful sign in
+    if (result.data?.user?.id) {
+      try {
+        console.log('📍 Detecting location after sign in...');
+        const location = await requestLocationPermission();
+        if (location && location.city !== 'Unknown') {
+          await saveLocationToDatabase(result.data.user.id, location);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not auto-detect location on login:', error);
+        // Don't fail login if location detection fails
+      }
+    }
+    
+    return result;
   },
 
   async signUp(email: string, password: string) {
     const result = await supabase.auth.signUp({ email, password });
     
-    // Create user profile in database after signup
+    // Create user profile and detect location after signup
     if (result.data?.user?.id) {
       try {
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://ai-travel-agent-backend.vercel.app';
@@ -68,9 +118,16 @@ export const auth = {
           success: profileResult.success, 
           message: profileResult.message 
         });
+        
+        // Detect and save location after profile creation
+        console.log('📍 Detecting location during sign up...');
+        const location = await requestLocationPermission();
+        if (location && location.city !== 'Unknown') {
+          await saveLocationToDatabase(result.data.user.id, location);
+        }
       } catch (error) {
-        console.error('⚠️ Could not create profile (will retry on first login):', error);
-        // Don't fail signup if profile creation fails
+        console.error('⚠️ Error during signup flow:', error);
+        // Don't fail signup if profile creation or location detection fails
       }
     }
     

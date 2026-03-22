@@ -122,13 +122,64 @@ router.post('/', async (req, res) => {
             if (locationContext) {
                 // We have location data - provide full personalized context
                 systemPrompt = userName 
-                    ? `You are a helpful AI travel assistant. The user's name is ${userName}.${locationContext}${nearbyContext}\n\nHelp them plan trips, answer travel questions, and provide personalized recommendations. Use their name naturally in conversation. When asked about their location or nearby countries, refer to the context provided above. Provide relevant information about their area including attractions, weather insights, and travel opportunities. When suggesting nearby countries, include details about distance, travel time, and best season to visit.`
-                    : `You are a helpful AI travel assistant.${locationContext}${nearbyContext}\n\nHelp users plan their trips, answer travel questions, and provide recommendations. When asked about their location or nearby countries, refer to the context provided above. Include details about distance, travel time, and best season to visit. If you don't know the user's name yet, politely ask for it in a friendly way during the conversation.`
+                    ? `You are an expert AI travel assistant specializing in personalized travel recommendations. The user's name is ${userName}.${locationContext}${nearbyContext}
+
+PERSONALIZATION GUIDELINES:
+- Use the user's name naturally in conversations to build rapport
+- When recommending destinations, prioritize those near their current location when relevant
+- Consider suggesting nearby countries as quick getaway options
+- Provide climate/weather insights for their current location and suggested destinations
+- Tailor recommendations based on proximity to reduce travel time and cost
+- When suggesting travel itineraries, account for their starting location
+- Ask about travel preferences, budget, and interests to refine recommendations
+
+RECOMMENDATIONS APPROACH:
+1. For "what should I visit" questions: Suggest nearby destinations first, then expand globally
+2. For "travel tips": Provide location-specific advice about their current area
+3. For flight recommendations: Compare options from their current location
+4. For itinerary planning: Start from their location as the departure point
+
+Always maintain enthusiasm about travel and help create memorable trip experiences!`
+                    : `You are an expert AI travel assistant specializing in personalized travel recommendations.${locationContext}${nearbyContext}
+
+PERSONALIZATION GUIDELINES:
+- When recommending destinations, prioritize those near the user's current location when relevant
+- Consider suggesting nearby countries as quick getaway options
+- Provide climate/weather insights for the user's location and suggested destinations
+- Tailor recommendations based on proximity to reduce travel time and cost
+- When suggesting travel itineraries, account for their starting location
+- Ask about travel preferences, budget, and interests to refine recommendations
+
+RECOMMENDATIONS APPROACH:
+1. For "what should I visit" questions: Suggest nearby destinations first, then expand globally
+2. For "travel tips": Provide location-specific advice about their current area
+3. For flight recommendations: Compare options from their current location
+4. For itinerary planning: Start from their location as the departure point
+
+If you don't know the user's name yet, politely ask for it in a friendly way. Always maintain enthusiasm about travel and help create memorable trip experiences!`
             } else {
                 // Location not available - ask user to confirm location first
                 systemPrompt = userName
-                    ? `You are a helpful AI travel assistant. The user's name is ${userName}.\n\nNote: User's location is currently being detected (${locationStatus}). If the user asks "where am I from" or "where am I", politely let them know the app is detecting their location and they should see a location permission popup. Ask them to allow location access or manually enter their location so you can provide better recommendations.\n\nHelp them plan trips, answer travel questions, and provide recommendations. Use their name naturally in conversation.`
-                    : `You are a helpful AI travel assistant.\n\nNote: User's location is currently being detected (${locationStatus}). If the user asks about their location or nearby countries, politely let them know the app is detecting their location and they should see a location permission popup. Ask them to allow location access or manually enter their location so you can provide better travel recommendations.\n\nHelp users plan their trips and answer travel questions.`
+                    ? `You are a helpful AI travel assistant. The user's name is ${userName}.
+
+LOCATION DETECTION STATUS: ${locationStatus}
+
+If the user asks "where am I from", "where am I", or requests location-specific recommendations:
+1. Explain that the app is detecting their location
+2. Ask them to allow location permission when prompted
+3. Alternatively, offer to manually set their home location for better recommendations
+
+Help them plan trips and answer travel questions using their name naturally in conversation. Once their location is confirmed, you'll be able to provide better personalized recommendations for nearby destinations and travel options.`
+                    : `You are a helpful AI travel assistant.
+
+LOCATION DETECTION STATUS: ${locationStatus}
+
+If the user asks about their location or requests location-specific recommendations:
+1. Explain that the app is detecting their location
+2. Ask them to allow location permission when prompted
+3. Alternatively, offer to manually set their location for better recommendations
+
+Help users plan their trips and answer travel questions. Once their location is confirmed, you'll be able to provide better personalized recommendations for nearby destinations and travel options.`
             }
             
             chatMessages = [
@@ -148,17 +199,29 @@ router.post('/', async (req, res) => {
             })
         }
 
-        // Save user message to chat history
+        // Save user message to chat history with location context
         if (userId && message) {
             try {
                 const historyData = {
                     user_id: userId,
                     role: 'user',
-                    message: message
+                    message: message,
+                    content: message
                 };
-                // Try to add optional fields for newer schema
+                
+                // Add context data including location information
+                const contextData = {
+                    locationStatus: locationStatus,
+                    hasLocationData: !!locationContext,
+                    userName: userName || null
+                };
+                
                 if (sessionId) {
                     historyData.session_id = sessionId;
+                }
+                
+                if (Object.keys(contextData).length > 0) {
+                    historyData.context_data = contextData;
                 }
                 
                 const { data, error } = await getSupabase()
@@ -169,7 +232,7 @@ router.post('/', async (req, res) => {
                 if (error) {
                     console.error('Error saving user message to history:', error?.message, error?.details);
                 } else {
-                    console.log('✓ User message saved:', { userId, role: 'user', id: data?.[0]?.id });
+                    console.log('✓ User message saved:', { userId, role: 'user', id: data?.[0]?.id, location: locationStatus });
                 }
             } catch (error) {
                 console.error('Exception saving user message:', error?.message)
@@ -185,17 +248,31 @@ router.post('/', async (req, res) => {
 
         const assistantMessage = chatCompletion.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
 
-        // Save assistant message to chat history
+        // Save assistant message to chat history with location context
         if (userId) {
             try {
                 const historyData = {
                     user_id: userId,
                     role: 'assistant',
-                    message: assistantMessage
+                    message: assistantMessage,
+                    content: assistantMessage
                 };
-                // Try to add optional fields for newer schema
+                
+                // Add context data including location information
+                const contextData = {
+                    locationStatus: locationStatus,
+                    hasLocationData: !!locationContext,
+                    nearbyContextIncluded: !!nearbyContext,
+                    userName: userName || null,
+                    model: model
+                };
+                
                 if (sessionId) {
                     historyData.session_id = sessionId;
+                }
+                
+                if (Object.keys(contextData).length > 0) {
+                    historyData.context_data = contextData;
                 }
                 
                 const { data, error } = await getSupabase()
@@ -206,7 +283,7 @@ router.post('/', async (req, res) => {
                 if (error) {
                     console.error('Error saving assistant message to history:', error?.message, error?.details);
                 } else {
-                    console.log('✓ Assistant message saved:', { userId, role: 'assistant', id: data?.[0]?.id });
+                    console.log('✓ Assistant message saved:', { userId, role: 'assistant', id: data?.[0]?.id, location: locationStatus });
                 }
             } catch (error) {
                 console.error('Exception saving assistant message:', error?.message)
@@ -218,7 +295,8 @@ router.post('/', async (req, res) => {
             message: assistantMessage,
             data: {
                 message: chatCompletion.choices[0]?.message,
-                usage: chatCompletion.usage
+                usage: chatCompletion.usage,
+                locationStatus: locationStatus
             }
         })
     } catch (error) {
