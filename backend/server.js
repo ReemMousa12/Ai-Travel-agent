@@ -10,13 +10,26 @@ const __dirname = path.dirname(__filename)
 // Load environment variables FIRST before importing routes
 dotenv.config({ path: path.join(__dirname, '.env') })
 
+// Handle environment variables - Vercel uses VITE prefix for some, standard for others
+// Set standard names from VITE prefixed versions if available (Vercel)
+if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+    process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL
+}
+if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
+    process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
+}
+
+
 // Verify critical environment variables exist
-const requiredEnvVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'GROQ_API_KEY']
 const missingEnvVars = requiredEnvVars.filter(v => !process.env[v])
 
 if (missingEnvVars.length > 0) {
     console.warn(`⚠️ Missing environment variables: ${missingEnvVars.join(', ')}`)
-    console.warn('ℹ️ Set these in Vercel Dashboard → Project Settings → Environment Variables')
+    console.warn('ℹ️ Set these in Vercel Dashboard → Project Settings → Environment Variables:')
+    console.warn('   - VITE_SUPABASE_URL')
+    console.warn('   - VITE_SUPABASE_ANON_KEY')
+    console.warn('   - GROQ_API_KEY (no VITE prefix)')
 }
 
 import chatRoutes from './routes/chat.js'
