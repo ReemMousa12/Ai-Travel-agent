@@ -92,25 +92,32 @@ export default function Dashboard({ userId }: DashboardProps) {
       // If no saved preferences, try to detect location
       if (!locationSet) {
         try {
+          console.log('🔍 No saved location, detecting from IP/GPS...');
           const locationData = await apiClient.getLocation();
+          console.log('📍 Location data received:', locationData);
+          
           if (!locationData?.error && locationData?.city) {
             city = locationData.city;
             setLocation(`${locationData.city}, ${locationData.country}`);
             
             // Save detected location (if backend is working)
+            console.log('💾 Attempting to save detected location...');
             await apiClient.saveUserPreferences(userId, {
               locationCity: locationData.city,
               locationCountry: locationData.country,
               locationLat: locationData.latitude,
               locationLon: locationData.longitude,
-            }).catch(() => {
-              console.warn('Could not save preferences - database may not be deployed');
+            }).then(result => {
+              console.log('✅ Detected location saved:', result);
+            }).catch(err => {
+              console.error('❌ Error saving detected location:', err);
             });
           } else {
+            console.warn('⚠️ Invalid location data:', locationData);
             setLocation('London, UK');
           }
         } catch (locationError) {
-          console.warn('Location detection failed:', locationError);
+          console.error('❌ Location detection failed:', locationError);
           setLocation('London, UK');
         }
       }

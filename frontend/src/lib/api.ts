@@ -215,19 +215,25 @@ class ApiClient {
 
   async saveUserPreferences(userId: string, preferences: UserPreferences) {
     try {
+      console.log('📤 Sending save request to:', `${API_BASE_URL}/api/database/user-preferences`, { userId, preferences });
       const response = await fetch(`${API_BASE_URL}/api/database/user-preferences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, preferences }),
       });
+      
+      const result = await response.json();
+      console.log('📥 Save response:', { status: response.status, ok: response.ok, result });
+      
       if (!response.ok) {
-        console.warn(`Failed to save preferences: ${response.status}`);
+        console.error(`❌ Failed to save preferences: ${response.status} - ${result.message || result.error}`);
         return null;
       }
-      const result = await response.json();
+      
+      console.log('✅ Preferences saved:', result.data);
       return result.data || null;
     } catch (error) {
-      console.warn('Error saving preferences:', error);
+      console.error('❌ Error saving preferences:', error);
       return null;
     }
   }
