@@ -13,7 +13,7 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState('Loading...');
   const [loading, setLoading] = useState(true);
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(true); // Force TRUE for testing
   const [permissionDenied, setPermissionDenied] = useState(false);
 
   useEffect(() => {
@@ -154,7 +154,39 @@ export default function Dashboard({ userId }: DashboardProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Hero Section */}
+      {/* LOCATION SETUP PROMPT - Always visible at top */}
+      {showLocationPrompt && (
+        <div className="bg-orange-500 text-white rounded-lg p-4 shadow-lg border-2 border-orange-600">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h3 className="text-lg font-bold mb-2">📍 Your Location (GPS Required)</h3>
+              <p className="text-sm mb-3">
+                All IP-based detection services are blocked. <strong>Click below to use your browser's GPS</strong> to set your actual location.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={requestLocationPermission}
+                  disabled={loading}
+                  className="bg-white text-orange-600 font-bold px-6 py-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-60"
+                >
+                  {loading ? '⏳ Detecting...' : '📍 Enable GPS Now'}
+                </button>
+                <button
+                  onClick={() => setShowLocationPrompt(false)}
+                  className="bg-orange-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* TEST BOX - if you see this, component is rendering */}
+      <div className="bg-red-500 p-4 rounded text-white font-bold text-center">
+        🧪 DASHBOARD LOADED (showLocationPrompt = {String(showLocationPrompt)})
+      </div>
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -199,6 +231,11 @@ export default function Dashboard({ userId }: DashboardProps) {
           transition={{ delay: 0.3 }}
           className="card bg-gradient-to-br from-blue-500 to-purple-500 text-white"
         >
+          {/* DEBUG: Show showLocationPrompt state */}
+          <div className="bg-yellow-300 text-black p-2 rounded mb-2 text-sm font-bold text-center">
+            DEBUG: showLocationPrompt = {String(showLocationPrompt)}
+          </div>
+          
           <div className="flex items-start justify-between mb-4">
             <div>
               <h3 className="text-xl font-bold mb-1">Your Location</h3>
