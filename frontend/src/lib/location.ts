@@ -75,7 +75,7 @@ function getCurrentCoordinates(): Promise<{ latitude: number; longitude: number 
 
 /**
  * Reverse geocode coordinates to get city and country
- * Uses Open-Meteo Geocoding API (free, no API key required)
+ * Routes through backend to avoid CORS issues
  */
 async function reverseGeocode(latitude: number, longitude: number): Promise<{
   city: string;
@@ -85,9 +85,10 @@ async function reverseGeocode(latitude: number, longitude: number): Promise<{
   try {
     console.log('🌍 Reverse geocoding coordinates:', { latitude, longitude });
     
-    // Using Open-Meteo's free geocoding API
+    // Use backend API to avoid CORS issues
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
     const response = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=en`
+      `${apiUrl}/api/location/geocode?latitude=${latitude}&longitude=${longitude}`
     );
     
     if (!response.ok) {
@@ -97,15 +98,13 @@ async function reverseGeocode(latitude: number, longitude: number): Promise<{
     const data: any = await response.json();
     console.log('🌍 Geocoding response:', data);
     
-    // Extract city and country from the response
-    const results = data.results?.[0];
-    if (!results) {
-      throw new Error('No geocoding results found');
+    if (data.error) {
+      throw new Error(data.error);
     }
     
-    const city = results.city || results.name || 'Unknown';
-    const country = results.country || 'Unknown';
-    const countryCode = results.country_code?.toUpperCase() || 'XX';
+    const city = data.city || 'Current Location';
+    const country = data.country || 'Unknown';
+    const countryCode = data.countryCode || 'XX';
     
     console.log('✅ Location detected:', { city, country, countryCode });
     

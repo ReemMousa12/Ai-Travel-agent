@@ -174,4 +174,64 @@ router.get('/explore', async (req, res) => {
     }
 })
 
+// GET /api/location/geocode?latitude=51.5074&longitude=-0.1278
+// Reverse geocode coordinates to city/country (called by frontend to avoid CORS)
+router.get('/geocode', async (req, res) => {
+    try {
+        const { latitude, longitude } = req.query
+        
+        if (!latitude || !longitude) {
+            return res.json({ 
+                success: false, 
+                error: 'latitude and longitude required',
+                city: 'Unknown',
+                country: 'Unknown',
+                countryCode: 'XX'
+            })
+        }
+        
+        console.log('🌍 Backend geocoding request:', { latitude, longitude });
+        
+        // Call Open-Meteo API from backend (no CORS issues here)
+        const response = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=en`
+        )
+        
+        if (!response.ok) {
+            throw new Error(`Open-Meteo API error: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        console.log('🌍 Open-Meteo response:', data);
+        
+        // Extract city and country from the response
+        const results = data.results?.[0]
+        if (!results) {
+            throw new Error('No geocoding results found')
+        }
+        
+        const city = results.city || results.name || 'Unknown'
+        const country = results.country || 'Unknown'
+        const countryCode = results.country_code?.toUpperCase() || 'XX'
+        
+        console.log('✅ Backend geocoding successful:', { city, country, countryCode });
+        
+        res.json({ 
+            success: true,
+            city,
+            country,
+            countryCode
+        })
+    } catch (error) {
+        console.error('❌ Backend geocoding error:', error?.message)
+        res.json({ 
+            success: false,
+            error: error?.message || 'Geocoding failed',
+            city: 'Current Location',
+            country: 'Unknown',
+            countryCode: 'XX'
+        })
+    }
+})
+
 export default router
