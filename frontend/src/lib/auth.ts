@@ -7,7 +7,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 
 export interface User {
   id: string;
@@ -16,8 +22,25 @@ export interface User {
 
 export const auth = {
   async getUser(): Promise<User | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.user ? { id: session.user.id, email: session.user.email || '' } : null;
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      // If there's a session error (expired token, etc), try to get the current user
+      if (error || !session) {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          // Session invalid - user needs to log in again
+          await supabase.auth.signOut();
+          return null;
+        }
+        return { id: user.id, email: user.email || '' };
+      }
+      
+      return session?.user ? { id: session.user.id, email: session.user.email || '' } : null;
+    } catch (error) {
+      console.error('Auth error:', error);
+      return null;
+    }
   },
 
   async signIn(email: string, password: string) {

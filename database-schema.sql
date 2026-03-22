@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS chat_history (
     trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
     role TEXT NOT NULL, -- 'user', 'assistant'
+    content TEXT, -- Content of message (for compatibility with API)
+    session_id TEXT DEFAULT 'default', -- Session/date grouping
     context_data JSONB, -- Store location, preferences used in response
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -128,6 +130,7 @@ BEGIN
     DROP POLICY IF EXISTS "Allow all access to saved_items" ON saved_items;
     DROP POLICY IF EXISTS "Allow all access to chat_history" ON chat_history;
     DROP POLICY IF EXISTS "Allow all access to nearby_destinations" ON nearby_destinations;
+    DROP POLICY IF EXISTS "Allow all access to favorites" ON favorites;
     
     -- Create policies (allow all for now - add auth checks in production)
     CREATE POLICY "Allow all access to user_preferences" ON user_preferences FOR ALL USING (true) WITH CHECK (true);
@@ -136,6 +139,7 @@ BEGIN
     CREATE POLICY "Allow all access to saved_items" ON saved_items FOR ALL USING (true) WITH CHECK (true);
     CREATE POLICY "Allow all access to chat_history" ON chat_history FOR ALL USING (true) WITH CHECK (true);
     CREATE POLICY "Allow all access to nearby_destinations" ON nearby_destinations FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Allow all access to favorites" ON favorites FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
 -- Table: favorites (Wishlist of favorite destinations)
@@ -163,7 +167,6 @@ CREATE INDEX IF NOT EXISTS idx_favorites_visited ON favorites(visited);
 
 -- Enable RLS for favorites
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to favorites" ON favorites FOR ALL USING (true) WITH CHECK (true);
 
 -- Insert nearby destinations reference data
 INSERT INTO nearby_destinations (user_country, nearby_country, distance_km, travel_time_hours, popularity_score, best_season, notes) VALUES
@@ -182,3 +185,17 @@ INSERT INTO nearby_destinations (user_country, nearby_country, distance_km, trav
 ('Japan', 'South Korea', 1400, 3, 8.5, 'May-Oct', 'Culture, food'),
 ('Brazil', 'Argentina', 1800, 3, 8.0, 'Nov-Mar', 'Cities, nature')
 ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- ALTER TABLE - Add missing columns to existing tables
+-- ============================================
+
+-- Add missing columns to chat_history if they don't exist
+ALTER TABLE chat_history
+ADD COLUMN IF NOT EXISTS message TEXT,
+ADD COLUMN IF NOT EXISTS content TEXT,
+ADD COLUMN IF NOT EXISTS session_id TEXT DEFAULT 'default';
+
+-- Ensure chat_history has proper indexes
+CREATE INDEX IF NOT EXISTS idx_chat_history_user_id ON chat_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_session_id ON chat_history(session_id);

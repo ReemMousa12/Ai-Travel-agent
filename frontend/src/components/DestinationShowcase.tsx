@@ -52,10 +52,10 @@ const destinations: Destination[] = [
 ];
 
 interface DestinationShowcaseProps {
-  userId?: string;
+  userId: string;
 }
 
-export default function DestinationShowcase({ userId = 'guest' }: DestinationShowcaseProps) {
+export default function DestinationShowcase({ userId }: DestinationShowcaseProps) {
   return (
     <div className="py-12">
       <div className="mb-8">
@@ -92,7 +92,7 @@ export default function DestinationShowcase({ userId = 'guest' }: DestinationSho
                     <MapPin size={18} className="text-yellow-400" />
                     <h3 className="text-3xl font-bold">{dest.name}, {dest.country}</h3>
                   </div>
-                  {userId && userId !== 'guest' && (
+                  {userId && (
                     <FavoriteButton
                       userId={userId}
                       destination={dest.name}

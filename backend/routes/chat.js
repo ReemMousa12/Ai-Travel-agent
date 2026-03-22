@@ -102,16 +102,28 @@ router.post('/', async (req, res) => {
         // Save user message to chat history
         if (userId && message) {
             try {
-                await getSupabase()
+                const historyData = {
+                    user_id: userId,
+                    role: 'user',
+                    message: message
+                };
+                // Try to add optional fields for newer schema
+                if (sessionId) {
+                    historyData.session_id = sessionId;
+                }
+                
+                const { data, error } = await getSupabase()
                     .from('chat_history')
-                    .insert([{
-                        user_id: userId,
-                        role: 'user',
-                        content: message,
-                        session_id: sessionId || new Date().toISOString().split('T')[0]
-                    }])
+                    .insert([historyData])
+                    .select();
+                
+                if (error) {
+                    console.error('Error saving user message to history:', error?.message, error?.details);
+                } else {
+                    console.log('✓ User message saved:', { userId, role: 'user', id: data?.[0]?.id });
+                }
             } catch (error) {
-                console.error('Error saving user message to history:', error)
+                console.error('Exception saving user message:', error?.message)
             }
         }
 
@@ -127,16 +139,28 @@ router.post('/', async (req, res) => {
         // Save assistant message to chat history
         if (userId) {
             try {
-                await getSupabase()
+                const historyData = {
+                    user_id: userId,
+                    role: 'assistant',
+                    message: assistantMessage
+                };
+                // Try to add optional fields for newer schema
+                if (sessionId) {
+                    historyData.session_id = sessionId;
+                }
+                
+                const { data, error } = await getSupabase()
                     .from('chat_history')
-                    .insert([{
-                        user_id: userId,
-                        role: 'assistant',
-                        content: assistantMessage,
-                        session_id: sessionId || new Date().toISOString().split('T')[0]
-                    }])
+                    .insert([historyData])
+                    .select();
+                
+                if (error) {
+                    console.error('Error saving assistant message to history:', error?.message, error?.details);
+                } else {
+                    console.log('✓ Assistant message saved:', { userId, role: 'assistant', id: data?.[0]?.id });
+                }
             } catch (error) {
-                console.error('Error saving assistant message to history:', error)
+                console.error('Exception saving assistant message:', error?.message)
             }
         }
 

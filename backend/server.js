@@ -10,6 +10,14 @@ const __dirname = path.dirname(__filename)
 // Load environment variables FIRST before importing routes
 dotenv.config({ path: path.join(__dirname, '.env') })
 
+// Support both SUPABASE_URL/SUPABASE_ANON_KEY and VITE_ prefixed versions
+if (process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
+    process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL
+}
+if (process.env.VITE_SUPABASE_ANON_KEY && !process.env.SUPABASE_ANON_KEY) {
+    process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
+}
+
 // Verify critical environment variables exist
 const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY']
 const missingEnvVars = requiredEnvVars.filter(v => !process.env[v])

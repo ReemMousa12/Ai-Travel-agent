@@ -458,26 +458,36 @@ router.post('/chat-history', async (req, res) => {
             return res.status(400).json({ success: false, error: 'userId required' })
         }
         
+        // Build data object with only existing fields
+        const historyData = {
+            user_id: userId,
+            role,
+            message: content // Save to 'message' field which should exist
+        };
+        
+        // Add optional fields if table has them
+        if (sessionId) {
+            historyData.session_id = sessionId;
+        }
+        
         const { data, error } = await getSupabase()
             .from('chat_history')
-            .insert([{
-                user_id: userId,
-                role,
-                content,
-                session_id: sessionId
-            }])
+            .insert([historyData])
             .select()
         
         if (error) {
+            console.error('Chat history insert error:', { message: error?.message, code: error?.code, details: error?.details })
             if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
                 return res.json({ success: true, data: null, message: 'Table not yet initialized' })
             }
             throw error
         }
+        
+        console.log('✓ Chat message saved:', { userId, role, id: data?.[0]?.id })
         res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
         console.error('Save chat history error:', error?.message)
-        res.json({ success: true, data: null })
+        res.json({ success: true, data: null, message: error?.message })
     }
 })
 
