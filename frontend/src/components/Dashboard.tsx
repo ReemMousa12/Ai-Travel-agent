@@ -43,12 +43,19 @@ export default function Dashboard({ userId }: DashboardProps) {
               setShowLocationPrompt(false);
               
               // Save to database
-              await apiClient.saveUserPreferences(userId, {
+              console.log('💾 Saving location to database:', { userId, city, country, lat: latitude, lon: longitude });
+              const saveResult = await apiClient.saveUserPreferences(userId, {
                 locationCity: city,
                 locationCountry: country,
                 locationLat: latitude,
                 locationLon: longitude,
-              }).catch(err => console.warn('Could not save preferences:', err));
+              });
+              
+              if (saveResult) {
+                console.log('✅ Location saved successfully to database:', saveResult);
+              } else {
+                console.warn('⚠️ Location may not have been saved (check backend logs)');
+              }
             } catch (error) {
               console.error('Reverse geocoding error:', error);
             }

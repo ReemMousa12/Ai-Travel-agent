@@ -213,36 +213,44 @@ router.post('/user-preferences', async (req, res) => {
         if (preferences?.travelPace !== undefined) updateData.travel_pace = preferences.travelPace
         if (preferences?.groupType !== undefined) updateData.group_type = preferences.groupType
         
+        // Log what we're about to save
+        console.log('💾 Saving user preferences:', { userId, updateData });
+        
         const { data, error } = await getSupabase()
             .from('user_preferences')
             .upsert([updateData], { onConflict: 'user_id' })
             .select()
         
         if (error) {
-            console.error('Upsert error:', error?.message)
+            console.error('❌ Upsert error for user', userId, ':', error?.message, 'Code:', error?.code);
             // If table doesn't exist, return success anyway
             if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                console.warn('⚠️ Table not yet initialized');
                 return res.json({ 
                     success: true, 
                     data: null,
                     message: 'Table not yet initialized'
                 })
             }
-            // Return success even on other errors
+            // Log more details and return with error info
+            console.error('📋 Full error:', error);
             return res.json({ 
-                success: true, 
+                success: false,
                 data: null,
-                message: 'Could not save preferences'
+                message: 'Could not save preferences: ' + error.message,
+                error: error?.message
             })
         }
         
+        console.log('✅ User preferences saved successfully:', { userId, current_location: updateData.current_location, current_country: updateData.current_country });
         res.json({ success: true, data: data?.[0] || null })
     } catch (error) {
-        console.error('Save preferences error:', error?.message)
+        console.error('❌ Unexpected error in save preferences:', error?.message);
         res.json({ 
-            success: true, 
+            success: false,
             data: null,
-            message: 'Could not save preferences'
+            message: 'Could not save preferences: ' + error?.message,
+            error: error?.message
         })
     }
 })
