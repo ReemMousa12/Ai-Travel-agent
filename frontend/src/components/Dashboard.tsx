@@ -108,6 +108,8 @@ export default function Dashboard({ userId }: DashboardProps) {
       // Check for saved preferences (may be null if database not deployed)
       const preferences = await apiClient.getUserPreferences(userId);
       console.log('📦 Preferences loaded:', preferences);
+      console.log('📦 Has locationCity?', !!preferences?.locationCity);
+      console.log('📦 Full preferences object:', JSON.stringify(preferences, null, 2));
       
       let city = 'London';
       
@@ -117,6 +119,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
       } else {
         console.log('ℹ️ No saved location - user needs to set it via button');
+        console.log('ℹ️ Setting showLocationPrompt to TRUE');
         // Show the prompt so user can click to enable GPS
         setShowLocationPrompt(true);
       }
