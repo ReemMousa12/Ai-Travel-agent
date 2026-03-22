@@ -23,6 +23,14 @@ if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
 // Create app for Vercel
 const app = express()
 
+// Add early logging for debugging
+console.log('🚀 Initializing Vercel API...')
+console.log('Environment vars status:', {
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+    GROQ_API_KEY: !!process.env.GROQ_API_KEY
+})
+
 // ====== CORS MIDDLEWARE - CRITICAL FOR VERCEL ======
 // These MUST be the first middleware applied
 // Key: Options handler must come BEFORE general middleware
@@ -98,16 +106,65 @@ app.get('/api/health', (req, res) => {
         status: 'ok',
         message: '✅ AI Travel Agent Backend is running on Vercel',
         timestamp: new Date().toISOString(),
-        cors: 'enabled'
+        cors: 'enabled',
+        environment: {
+            SUPABASE_URL: !!process.env.SUPABASE_URL ? '✅' : '❌',
+            SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY ? '✅' : '❌',
+            GROQ_API_KEY: !!process.env.GROQ_API_KEY ? '✅' : '❌'
+        }
     })
 })
 
-// Register all API routes
-app.use('/api/chat', chatRoutes)
-app.use('/api/travel', travelRoutes)
-app.use('/api/database', databaseRoutes)
-app.use('/api/location', locationRoutes)
-app.use('/api/favorites', favoritesRoutes)
+// Diagnostic endpoint
+app.get('/api/debug', (req, res) => {
+    res.json({
+        status: 'running',
+        message: 'Debug information',
+        environment: {
+            NODE_ENV: process.env.NODE_ENV,
+            SUPABASE_URL: !!process.env.SUPABASE_URL,
+            SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+            GROQ_API_KEY: !!process.env.GROQ_API_KEY
+        },
+        timestamp: new Date().toISOString()
+    })
+})
+
+// Register all API routes with error handling
+try {
+    app.use('/api/chat', chatRoutes || ((req, res) => res.status(503).json({ error: 'Chat service not available' })))
+} catch (err) {
+    console.error('❌ Error registering chat routes:', err?.message)
+    app.use('/api/chat', (req, res) => res.status(503).json({ error: 'Chat service error' }))
+}
+
+try {
+    app.use('/api/travel', travelRoutes || ((req, res) => res.status(503).json({ error: 'Travel service not available' })))
+} catch (err) {
+    console.error('❌ Error registering travel routes:', err?.message)
+    app.use('/api/travel', (req, res) => res.status(503).json({ error: 'Travel service error' }))
+}
+
+try {
+    app.use('/api/database', databaseRoutes || ((req, res) => res.status(503).json({ error: 'Database service not available' })))
+} catch (err) {
+    console.error('❌ Error registering database routes:', err?.message)
+    app.use('/api/database', (req, res) => res.status(503).json({ error: 'Database service error' }))
+}
+
+try {
+    app.use('/api/location', locationRoutes || ((req, res) => res.status(503).json({ error: 'Location service not available' })))
+} catch (err) {
+    console.error('❌ Error registering location routes:', err?.message)
+    app.use('/api/location', (req, res) => res.status(503).json({ error: 'Location service error' }))
+}
+
+try {
+    app.use('/api/favorites', favoritesRoutes || ((req, res) => res.status(503).json({ error: 'Favorites service not available' })))
+} catch (err) {
+    console.error('❌ Error registering favorites routes:', err?.message)
+    app.use('/api/favorites', (req, res) => res.status(503).json({ error: 'Favorites service error' }))
+}
 
 // 404 handler - must be last route
 app.use((req, res) => {
@@ -165,4 +222,5 @@ app.use((err, req, res, next) => {
 })
 
 // Export for Vercel
+console.log('✅ API initialization complete')
 export default app

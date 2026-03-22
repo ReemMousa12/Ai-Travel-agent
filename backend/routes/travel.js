@@ -1,5 +1,4 @@
 import express from 'express'
-import Groq from 'groq-sdk'
 import https from 'https'
 import { searchFlights, searchHotels, searchActivities, searchRestaurants } from '../services/travel.js'
 import { getCurrentWeather, getLocation } from '../services/basic.js'
