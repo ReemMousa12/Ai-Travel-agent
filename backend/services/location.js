@@ -1,6 +1,5 @@
 // Location Service - Detect user location and fetch nearby destinations
 import { createClient } from '@supabase/supabase-js'
-import { getLocation } from './basic.js'
 
 // Lazy-initialize Supabase client to avoid crashes on module load
 let supabase = null
@@ -15,33 +14,28 @@ function getSupabase() {
     return supabase
 }
 
-// Detect user's current location (using IP geolocation with fallbacks from basic.js)
+// Detect user's current location (using IP geolocation)
 export async function detectUserLocation() {
     try {
-        console.log('🌍 detectUserLocation called');
-        const locationJSON = await getLocation()
-        console.log('🌍 getLocation returned:', locationJSON);
-        const data = JSON.parse(locationJSON)
-        console.log('🌍 Parsed location data:', data);
+        // Use HTTPS endpoint to avoid browser blocks
+        const response = await fetch('https://ipapi.co/json/')
+        const data = await response.json()
         
         if (data.error) {
-            console.error('⚠️ Location detection error:', data.error)
-            // Return data anyway since it has fallback values
+            console.error('IP geolocation error:', data.reason)
+            return null
         }
         
-        const result = {
-            country: data.country_name || data.country || 'Unknown',
-            country_code: data.country || 'US',
+        return {
+            country: data.country_name || 'Unknown',
+            country_code: data.country_code || 'US',
             city: data.city || 'Unknown',
             latitude: data.latitude || 0,
             longitude: data.longitude || 0,
             timezone: data.timezone || ''
         }
-        console.log('✅ Returning location result:', result);
-        return result;
     } catch (error) {
-        console.error('❌ Error in detectUserLocation:', error?.message)
-        console.error('Stack:', error);
+        console.error('Error detecting location:', error?.message)
         return null
     }
 }

@@ -10,31 +10,13 @@ const __dirname = path.dirname(__filename)
 // Load environment variables FIRST before importing routes
 dotenv.config({ path: path.join(__dirname, '.env') })
 
-// Support both SUPABASE_URL/SUPABASE_ANON_KEY and VITE_ prefixed versions
-if (process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
-    process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL
-    console.log('✅ Mapped VITE_SUPABASE_URL → SUPABASE_URL');
-}
-if (process.env.VITE_SUPABASE_ANON_KEY && !process.env.SUPABASE_ANON_KEY) {
-    process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
-    console.log('✅ Mapped VITE_SUPABASE_ANON_KEY → SUPABASE_ANON_KEY');
-}
-
 // Verify critical environment variables exist
 const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY']
 const missingEnvVars = requiredEnvVars.filter(v => !process.env[v])
 
 if (missingEnvVars.length > 0) {
-    console.error(`❌ Missing environment variables: ${missingEnvVars.join(', ')}`)
-    console.error('ℹ️ Set these in Vercel Dashboard → Project Settings → Environment Variables')
-    console.error('📝 Options:')
-    console.error('   1. Set SUPABASE_URL and SUPABASE_ANON_KEY directly')
-    console.error('   2. OR set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (will be mapped)')
-} else {
-    console.log('✅ All required environment variables are set');
-    console.log('✅ Supabase connection ready:');
-    console.log('   URL:', process.env.SUPABASE_URL?.substring(0, 30) + '...');
-    console.log('   Key:', process.env.SUPABASE_ANON_KEY?.substring(0, 20) + '...');
+    console.warn(`⚠️ Missing environment variables: ${missingEnvVars.join(', ')}`)
+    console.warn('ℹ️ Set these in Vercel Dashboard → Project Settings → Environment Variables')
 }
 
 import chatRoutes from './routes/chat.js'

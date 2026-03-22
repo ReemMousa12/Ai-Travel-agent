@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Cloud, Wind, Droplets, RefreshCw, Plane, Hotel, Calendar } from 'lucide-react';
+import type { User } from '../lib/auth';
 import { apiClient } from '../lib/api';
 import type { WeatherData } from '../lib/api';
 import DestinationShowcase from './DestinationShowcase';
+import { FavoritesPanel } from './FavoritesPanel';
 
 interface DashboardProps {
   userId: string;
@@ -13,154 +15,60 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [location, setLocation] = useState('Loading...');
   const [loading, setLoading] = useState(true);
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false); // Only show if no saved location
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const loadedRef = useRef(false); // Prevent duplicate loads
 
   useEffect(() => {
-    console.log('🔄 Dashboard useEffect triggered for userId:', userId);
-    
-    // Prevent double loading in React Strict Mode
-    if (loadedRef.current) {
-      console.log('⚠️ Dashboard already loaded, skipping');
-      return;
-    }
-    
-    loadedRef.current = true;
     loadDashboard();
   }, [userId]);
 
   async function loadDashboard() {
     try {
-      console.log('📊 [loadDashboard] Starting...');
-      setLoading(true);
-      
-      // STEP 1: Check for saved preferences
-      console.log('📊 [Step 1] Checking saved preferences...');
+      // Check for saved preferences (may be null if database not deployed)
       const preferences = await apiClient.getUserPreferences(userId);
-      console.log('📦 [Step 1] Preferences:', preferences);
+      
+      let city = 'London';
+      let locationSet = false;
       
       if (preferences?.locationCity) {
-        console.log('✅ [Step 1] Found saved location:', preferences.locationCity);
+        city = preferences.locationCity;
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
-        const weatherData = await apiClient.getWeather(preferences.locationCity);
-        setWeather(weatherData);
-        setLoading(false);
-        return;
+        locationSet = true;
       }
       
-      // STEP 2: No saved location, try GPS
-      console.log('📊 [Step 2] No saved location, attempting GPS...');
-      const gpsLocation = await tryGPSDetection();
-      
-      if (gpsLocation) {
-        console.log('✅ [Step 2] GPS succeeded:', gpsLocation);
-        setLocation(`${gpsLocation.city}, ${gpsLocation.country}`);
-        const weatherData = await apiClient.getWeather(gpsLocation.city);
-        setWeather(weatherData);
-        setLoading(false);
-        return;
+      // If no saved preferences, try to detect location
+      if (!locationSet) {
+        try {
+          const locationData = await apiClient.getLocation();
+          if (!locationData?.error && locationData?.city) {
+            city = locationData.city;
+            setLocation(`${locationData.city}, ${locationData.country}`);
+            
+            // Save detected location (if backend is working)
+            await apiClient.saveUserPreferences(userId, {
+              locationCity: locationData.city,
+              locationCountry: locationData.country,
+              locationLat: locationData.latitude,
+              locationLon: locationData.longitude,
+            }).catch(() => {
+              console.warn('Could not save preferences - database may not be deployed');
+            });
+          } else {
+            setLocation('London, UK');
+          }
+        } catch (locationError) {
+          console.warn('Location detection failed:', locationError);
+          setLocation('London, UK');
+        }
       }
       
-      // STEP 3: GPS denied/failed, try IP detection
-      console.log('📊 [Step 3] GPS failed, trying IP detection...');
-      const ipLocation = await apiClient.getLocation();
-      console.log('📊 [Step 3] IP detection result:', ipLocation);
-      
-      if (ipLocation?.city && ipLocation.city !== 'London') {
-        console.log('✅ [Step 3] IP detection succeeded:', ipLocation.city);
-        setLocation(`${ipLocation.city}, ${ipLocation.country}`);
-        const weatherData = await apiClient.getWeather(ipLocation.city);
-        setWeather(weatherData);
-      } else {
-        console.log('⚠️ [Step 3] IP detection returned London (fallback)');
-        setLocation('London, GB');
-        setShowLocationPrompt(true); // Show GPS button as option
-        const weatherData = await apiClient.getWeather('London');
-        setWeather(weatherData);
-      }
+      // Load weather
+      const weatherData = await apiClient.getWeather(city);
+      setWeather(weatherData);
     } catch (error) {
-      console.error('❌ [loadDashboard] Error:', error);
-      setLocation('London, GB');
+      console.error('Dashboard error:', error);
+      setLocation('London, UK');
     } finally {
       setLoading(false);
     }
-  }
-
-  async function tryGPSDetection(): Promise<{ city: string; country: string } | null> {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        console.log('❌ Geolocation not supported');
-        resolve(null);
-        return;
-      }
-
-      console.log('📍 Requesting GPS permission...');
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            console.log('🟢 GPS GRANTED - coordinates:', position.coords);
-            const { latitude, longitude } = position.coords;
-
-            // Reverse geocode
-            console.log('🌐 Reverse geocoding...');
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-            );
-            const data = await response.json();
-            console.log('🌐 Geocoding result:', data);
-
-            const city = data.address?.city || data.address?.town || null;
-            const country = data.address?.country_code?.toUpperCase() || null;
-
-            if (city && country) {
-              console.log('✅ Geocoding succeeded:', { city, country });
-              // Save to database
-              await apiClient.saveUserPreferences(userId, {
-                locationCity: city,
-                locationCountry: country,
-                locationLat: latitude,
-                locationLon: longitude,
-              });
-              console.log('💾 Saved to database');
-              resolve({ city, country });
-            } else {
-              console.log('❌ Geocoding failed - no city/country');
-              resolve(null);
-            }
-          } catch (error) {
-            console.error('❌ GPS geocoding error:', error);
-            resolve(null);
-          }
-        },
-        (error) => {
-          console.log('🚫 GPS DENIED or ERROR:', error.message);
-          setPermissionDenied(true);
-          resolve(null);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        }
-      );
-    });
-  }
-
-  async function requestLocationPermission() {
-    console.log('🔄 Manual GPS request triggered');
-    setLoading(true);
-    const gpsLocation = await tryGPSDetection();
-    
-    if (gpsLocation) {
-      setLocation(`${gpsLocation.city}, ${gpsLocation.country}`);
-      setShowLocationPrompt(false);
-      const weatherData = await apiClient.getWeather(gpsLocation.city);
-      setWeather(weatherData);
-    } else {
-      console.log('GPS still failed after retry');
-    }
-    setLoading(false);
   }
 
   async function updateLocation() {
@@ -182,39 +90,7 @@ export default function Dashboard({ userId }: DashboardProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* LOCATION SETUP PROMPT - Always visible at top */}
-      {showLocationPrompt && (
-        <div className="bg-orange-500 text-white rounded-lg p-4 shadow-lg border-2 border-orange-600">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h3 className="text-lg font-bold mb-2">📍 Your Location (GPS Required)</h3>
-              <p className="text-sm mb-3">
-                All IP-based detection services are blocked. <strong>Click below to use your browser's GPS</strong> to set your actual location.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={requestLocationPermission}
-                  disabled={loading}
-                  className="bg-white text-orange-600 font-bold px-6 py-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-60"
-                >
-                  {loading ? '⏳ Detecting...' : '📍 Enable GPS Now'}
-                </button>
-                <button
-                  onClick={() => setShowLocationPrompt(false)}
-                  className="bg-orange-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* TEST BOX - if you see this, component is rendering */}
-      <div className="bg-red-500 p-4 rounded text-white font-bold text-center">
-        🧪 DASHBOARD LOADED (showLocationPrompt = {String(showLocationPrompt)})
-      </div>
+      {/* Hero Section */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -259,11 +135,6 @@ export default function Dashboard({ userId }: DashboardProps) {
           transition={{ delay: 0.3 }}
           className="card bg-gradient-to-br from-blue-500 to-purple-500 text-white"
         >
-          {/* DEBUG: Show showLocationPrompt state */}
-          <div className="bg-yellow-300 text-black p-2 rounded mb-2 text-sm font-bold text-center">
-            DEBUG: showLocationPrompt = {String(showLocationPrompt)}
-          </div>
-          
           <div className="flex items-start justify-between mb-4">
             <div>
               <h3 className="text-xl font-bold mb-1">Your Location</h3>
@@ -271,55 +142,16 @@ export default function Dashboard({ userId }: DashboardProps) {
                 <MapPin size={18} />
                 {location}
               </p>
-              {permissionDenied && (
-                <p className="text-yellow-200 text-sm mt-2 flex items-center gap-1">
-                  ⚠️ Location access denied (using IP-based detection)
-                </p>
-              )}
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowLocationPrompt(!showLocationPrompt)}
-                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
-                title="Update Location with GPS"
-              >
-                <MapPin size={20} />
-              </button>
-              <button
-                onClick={updateLocation}
-                disabled={loading}
-                className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
-                title="Refresh Location"
-              >
-                <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-              </button>
-            </div>
+            <button
+              onClick={updateLocation}
+              disabled={loading}
+              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
+              title="Update Location"
+            >
+              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+            </button>
           </div>
-
-          {/* Location Permission Prompt */}
-          {showLocationPrompt && (
-            <div className="bg-white/20 rounded-lg p-4 mb-4 border border-white/30">
-              <p className="text-sm mb-3 text-white/90 font-medium">
-                📍 <strong>Enable GPS Location?</strong><br />
-                This helps us show accurate local recommendations.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={requestLocationPermission}
-                  disabled={loading}
-                  className="flex-1 bg-white text-blue-600 px-4 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors disabled:opacity-50"
-                >
-                  {loading ? '⏳ Detecting...' : '📍 Enable GPS'}
-                </button>
-                <button
-                  onClick={() => setShowLocationPrompt(false)}
-                  className="flex-1 bg-white/20 text-white px-4 py-3 rounded-lg font-semibold hover:bg-white/30 transition-colors"
-                >
-                  Skip for Now
-                </button>
-              </div>
-            </div>
-          )}
 
           {weather && !loading && weather.main ? (
             <div className="space-y-4">

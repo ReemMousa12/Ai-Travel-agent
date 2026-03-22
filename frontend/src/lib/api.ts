@@ -122,45 +122,64 @@ class ApiClient {
 
   async getLocation(): Promise<LocationData> {
     try {
-      console.log('📍 [api.ts] Fetching location from:', `${API_BASE_URL}/api/location/current`);
-      const response = await fetch(`${API_BASE_URL}/api/location/current`);
-      console.log('📍 [api.ts] Response status:', response.status, response.ok);
-      
-      if (!response.ok) {
-        console.warn(`❌ [api.ts] Failed to fetch location: ${response.status}`);
-        return {
-          city: 'London',
-          country: 'GB',
-          latitude: 51.5074,
-          longitude: -0.1278,
-          error: `HTTP ${response.status}`
-        };
+      // Try browser Geolocation API first (most accurate)
+      if (navigator.geolocation) {
+        return new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              try {
+                // Reverse geocode coordinates to get city/country
+                const { latitude, longitude } = position.coords
+                const response = await fetch(
+                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                )
+                const data = await response.json()
+                
+                resolve({
+                  city: data.address?.city || data.address?.town || 'Your Location',
+                  country: data.address?.country_code?.toUpperCase() || 'EG',
+                  latitude,
+                  longitude,
+                  error: undefined
+                })
+              } catch (error) {
+                // Fallback to IP-based if reverse geocoding fails
+                this.fallbackLocationDetection().then(resolve)
+              }
+            },
+            async () => {
+              // User denied permission, fall back to IP-based
+              const result = await this.fallbackLocationDetection()
+              resolve(result)
+            },
+            { timeout: 5000, enableHighAccuracy: true }
+          )
+        })
       }
-      const result = await response.json();
-      console.log('📍 [api.ts] Response data:', result);
       
-      const location = result.location || {
-        city: 'London',
-        country: 'GB',
-        latitude: 51.5074,
-        longitude: -0.1278,
-        error: 'No location data in response'
-      };
-      console.log('✅ [api.ts] Returning location:', location);
-      return location;
+      // No geolocation support, use IP-based
+      return this.fallbackLocationDetection()
     } catch (error) {
-      console.error('❌ [api.ts] Error fetching location:', error);
-      return {
-        city: 'London',
-        country: 'GB',
-        latitude: 51.5074,
-        longitude: -0.1278,
-        error: error instanceof Error ? error.message : 'Failed to detect location'
-      };
+      console.error('Location error:', error)
+      return this.fallbackLocationDetection()
     }
   }
 
-  
+  private async fallbackLocationDetection(): Promise<LocationData> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/travel/location`)
+      return response.json()
+    } catch (error) {
+      console.error('Fallback location error:', error)
+      return {
+        city: 'Cairo',
+        country: 'EG',
+        latitude: 30.0444,
+        longitude: 31.2357,
+        error: 'Could not detect location'
+      }
+    }
+  }
 
   async getTrendingData(location: string): Promise<TrendingData> {
     const response = await fetch(
@@ -189,25 +208,19 @@ class ApiClient {
 
   async saveUserPreferences(userId: string, preferences: UserPreferences) {
     try {
-      console.log('📤 Sending save request to:', `${API_BASE_URL}/api/database/user-preferences`, { userId, preferences });
       const response = await fetch(`${API_BASE_URL}/api/database/user-preferences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, preferences }),
       });
-      
-      const result = await response.json();
-      console.log('📥 Save response:', { status: response.status, ok: response.ok, result });
-      
       if (!response.ok) {
-        console.error(`❌ Failed to save preferences: ${response.status} - ${result.message || result.error}`);
+        console.warn(`Failed to save preferences: ${response.status}`);
         return null;
       }
-      
-      console.log('✅ Preferences saved:', result.data);
+      const result = await response.json();
       return result.data || null;
     } catch (error) {
-      console.error('❌ Error saving preferences:', error);
+      console.warn('Error saving preferences:', error);
       return null;
     }
   }
@@ -467,87 +480,6 @@ class ApiClient {
     } catch (error) {
       console.warn('Error filtering favorites:', error);
       return [];
-    }
-  }
-
-  // User Profile Methods
-  async getUserProfile(userId: string) {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/database/user-profile?userId=${userId}`
-      );
-      if (!response.ok) {
-        console.warn(`Failed to fetch profile: ${response.status}`);
-        return null;
-      }
-      const result = await response.json();
-      return result.data || null;
-    } catch (error) {
-      console.warn('Error fetching profile:', error);
-      return null;
-    }
-  }
-
-  async updateUserProfile(userId: string, profileData: {
-    name?: string;
-    bio?: string;
-    homeCity?: string;
-    homeCountry?: string;
-    profileImage?: string;
-  }) {
-    try {
-      console.log('👤 Updating profile:', { userId, profileData });
-      const response = await fetch(`${API_BASE_URL}/api/database/user-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...profileData }),
-      });
-      
-      const result = await response.json();
-      if (!response.ok) {
-        console.error(`Failed to update profile: ${response.status}`, result);
-        return null;
-      }
-      
-      console.log('✅ Profile updated:', result.data);
-      return result.data || null;
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      return null;
-    }
-  }
-
-  async saveDetectedLocation(userId: string, locationData: {
-    locationCity: string;
-    locationCountry: string;
-    latitude?: number;
-    longitude?: number;
-  }) {
-    try {
-      const requestBody = { userId, ...locationData };
-      console.log('📍 Saving detected location to profile:', requestBody);
-      console.log(`📤 POST to: ${API_BASE_URL}/api/database/user-location`);
-      
-      const response = await fetch(`${API_BASE_URL}/api/database/user-location`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-      
-      const result = await response.json();
-      console.log(`📥 Response status: ${response.status}, ok: ${response.ok}`);
-      console.log('📥 Response body:', result);
-      
-      if (!response.ok) {
-        console.error(`❌ Failed to save location: ${response.status}`, result);
-        return null;
-      }
-      
-      console.log('✅ Location saved successfully:', result.data);
-      return result.data || null;
-    } catch (error) {
-      console.error('❌ Error saving location:', error);
-      return null;
     }
   }
 }
