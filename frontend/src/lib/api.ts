@@ -495,6 +495,81 @@ class ApiClient {
       return [];
     }
   }
+
+  // User Profile Methods
+  async getUserProfile(userId: string) {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/database/user-profile?userId=${userId}`
+      );
+      if (!response.ok) {
+        console.warn(`Failed to fetch profile: ${response.status}`);
+        return null;
+      }
+      const result = await response.json();
+      return result.data || null;
+    } catch (error) {
+      console.warn('Error fetching profile:', error);
+      return null;
+    }
+  }
+
+  async updateUserProfile(userId: string, profileData: {
+    name?: string;
+    bio?: string;
+    homeCity?: string;
+    homeCountry?: string;
+    profileImage?: string;
+  }) {
+    try {
+      console.log('👤 Updating profile:', { userId, profileData });
+      const response = await fetch(`${API_BASE_URL}/api/database/user-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...profileData }),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        console.error(`Failed to update profile: ${response.status}`, result);
+        return null;
+      }
+      
+      console.log('✅ Profile updated:', result.data);
+      return result.data || null;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return null;
+    }
+  }
+
+  async saveDetectedLocation(userId: string, locationData: {
+    locationCity: string;
+    locationCountry: string;
+    latitude?: number;
+    longitude?: number;
+  }) {
+    try {
+      console.log('📍 Saving detected location to profile:', { userId, ...locationData });
+      const response = await fetch(`${API_BASE_URL}/api/database/user-location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...locationData }),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        console.error(`Failed to save location: ${response.status}`, result);
+        return null;
+      }
+      
+      console.log('✅ Location saved:', result.data);
+      return result.data || null;
+    } catch (error) {
+      console.error('Error saving location:', error);
+      return null;
+    }
+  }
 }
 
 export const apiClient = new ApiClient();

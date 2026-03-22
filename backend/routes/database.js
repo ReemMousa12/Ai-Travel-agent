@@ -655,4 +655,150 @@ router.post('/search-history', async (req, res) => {
     }
 })
 
+// GET /api/database/user-profile?userId=user_123
+router.get('/user-profile', async (req, res) => {
+    try {
+        const { userId } = req.query
+        
+        if (!userId) {
+            return res.json({ 
+                success: true, 
+                data: null,
+                message: 'userId parameter required'
+            })
+        }
+        
+        const { data, error } = await getSupabase()
+            .from('user_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single()
+        
+        // PGRST116 = no rows found (not an error, just no data yet)
+        if (error && error.code !== 'PGRST116') {
+            console.error('Get user profile error:', error?.message)
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Table not yet initialized'
+                })
+            }
+        }
+        
+        res.json({ success: true, data: data || null })
+    } catch (error) {
+        console.error('Get user profile error:', error?.message)
+        res.json({ success: true, data: null })
+    }
+})
+
+// POST /api/database/user-profile - Update user profile
+router.post('/user-profile', async (req, res) => {
+    try {
+        const { userId, name, bio, homeCity, homeCountry, profileImage } = req.body
+        
+        if (!userId) {
+            return res.json({ 
+                success: false, 
+                data: null,
+                message: 'userId required'
+            })
+        }
+        
+        const updateData = {
+            user_id: userId,
+            updated_at: new Date().toISOString()
+        }
+        
+        if (name !== undefined) updateData.name = name
+        if (bio !== undefined) updateData.bio = bio
+        if (homeCity !== undefined) updateData.home_city = homeCity
+        if (homeCountry !== undefined) updateData.home_country = homeCountry
+        if (profileImage !== undefined) updateData.profile_image = profileImage
+        
+        console.log('👤 Updating user profile:', { userId, updateData })
+        
+        const { data, error } = await getSupabase()
+            .from('user_profiles')
+            .upsert([updateData], { onConflict: 'user_id' })
+            .select()
+        
+        if (error) {
+            console.error('❌ Update profile error:', error?.message)
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Table not yet initialized'
+                })
+            }
+            return res.json({ 
+                success: false,
+                data: null,
+                message: 'Could not update profile: ' + error.message
+            })
+        }
+        
+        console.log('✅ User profile updated:', { userId })
+        res.json({ success: true, data: data?.[0] || null })
+    } catch (error) {
+        console.error('Update profile error:', error?.message)
+        res.json({ success: false, data: null, message: 'Could not update profile' })
+    }
+})
+
+// POST /api/database/user-location - Save detected location to user_profiles
+router.post('/user-location', async (req, res) => {
+    try {
+        const { userId, locationCity, locationCountry, latitude, longitude } = req.body
+        
+        if (!userId) {
+            return res.json({ 
+                success: false, 
+                data: null,
+                message: 'userId required'
+            })
+        }
+        
+        console.log('📍 Saving detected location to user profile:', { userId, locationCity, locationCountry })
+        
+        const updateData = {
+            user_id: userId,
+            current_location: locationCity,
+            current_country: locationCountry,
+            latitude: latitude,
+            longitude: longitude,
+            updated_at: new Date().toISOString()
+        }
+        
+        const { data, error } = await getSupabase()
+            .from('user_profiles')
+            .upsert([updateData], { onConflict: 'user_id' })
+            .select()
+        
+        if (error) {
+            console.error('❌ Save location error:', error?.message)
+            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+                return res.json({ 
+                    success: true, 
+                    data: null,
+                    message: 'Table not yet initialized'
+                })
+            }
+            return res.json({ 
+                success: false,
+                data: null,
+                message: 'Could not save location: ' + error.message
+            })
+        }
+        
+        console.log('✅ Location saved to profile:', { userId, locationCity })
+        res.json({ success: true, data: data?.[0] || null })
+    } catch (error) {
+        console.error('Save location error:', error?.message)
+        res.json({ success: false, data: null, message: 'Could not save location' })
+    }
+})
+
 export default router

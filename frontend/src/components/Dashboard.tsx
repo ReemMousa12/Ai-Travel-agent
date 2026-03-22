@@ -100,17 +100,27 @@ export default function Dashboard({ userId }: DashboardProps) {
             city = locationData.city;
             setLocation(`${locationData.city}, ${locationData.country}`);
             
-            // Save detected location (if backend is working)
+            // Save detected location to both tables
             console.log('💾 Attempting to save detected location...');
-            await apiClient.saveUserPreferences(userId, {
-              locationCity: locationData.city,
-              locationCountry: locationData.country,
-              locationLat: locationData.latitude,
-              locationLon: locationData.longitude,
-            }).then(result => {
-              console.log('✅ Detected location saved:', result);
+            await Promise.all([
+              // Save to user_preferences
+              apiClient.saveUserPreferences(userId, {
+                locationCity: locationData.city,
+                locationCountry: locationData.country,
+                locationLat: locationData.latitude,
+                locationLon: locationData.longitude,
+              }),
+              // Save to user_profiles (current location)
+              apiClient.saveDetectedLocation(userId, {
+                locationCity: locationData.city,
+                locationCountry: locationData.country,
+                latitude: locationData.latitude,
+                longitude: locationData.longitude,
+              })
+            ]).then(([prefResult, profileResult]) => {
+              console.log('✅ Location saved:', { preferences: prefResult, profile: profileResult });
             }).catch(err => {
-              console.error('❌ Error saving detected location:', err);
+              console.error('❌ Error saving location:', err);
             });
           } else {
             console.warn('⚠️ Invalid location data:', locationData);
