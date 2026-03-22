@@ -26,18 +26,24 @@ export default function Dashboard({ userId }: DashboardProps) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
+            console.log('🟢 GPS CALLBACK STARTED');
             const { latitude, longitude } = position.coords;
             console.log('📍 Location permission granted:', { latitude, longitude });
+            console.log('🔑 userId available?', userId);
+            console.log('🔑 apiClient available?', !!apiClient);
             
             try {
+              console.log('🌐 Starting reverse geocoding...');
               // Reverse geocode to get city/country
               const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
               );
               const data = await response.json();
+              console.log('🌐 Geocoding response:', data);
               
               const city = data.address?.city || data.address?.town || 'Your Location';
               const country = data.address?.country_code?.toUpperCase() || 'EG';
+              console.log('📍 Extracted city/country:', { city, country });
               
               setLocation(`${city}, ${country}`);
               setShowLocationPrompt(false);
@@ -73,20 +79,26 @@ export default function Dashboard({ userId }: DashboardProps) {
                 console.error('❌ user_profiles save failed:', profileErr);
               }
             } catch (error) {
-              console.error('Reverse geocoding error:', error);
+              console.error('❌ Reverse geocoding error:', error);
+              if (error instanceof Error) {
+                console.error('Error details:', error.message);
+              }
+            } finally {
+              console.log('✅ GPS callback completed');
+              setLoading(false);
             }
           },
           () => {
             console.log('📍 Location permission denied');
             setPermissionDenied(true);
             setShowLocationPrompt(false);
+            setLoading(false);
             loadDashboard(); // Fall back to IP-based or saved location
           }
         );
       }
     } catch (error) {
       console.error('Location request error:', error);
-    } finally {
       setLoading(false);
     }
   }
