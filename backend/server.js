@@ -42,33 +42,34 @@ const app = express()
 const PORT = process.env.PORT || 3000
 
 // Middleware - CORS Configuration for Vercel and local development
+// Handle CORS with explicit headers for maximum compatibility
+app.use((req, res, next) => {
+    // Always set CORS headers for all requests
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept')
+    res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
+    res.header('Access-Control-Max-Age', '86400')
+    
+    // Handle preflight OPTIONS requests
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200)
+    }
+    
+    next()
+})
+
+// Also configure cors package as backup
 app.use(cors({
-    origin: function (origin, callback) {
-        // Allow all origins - specify specific origins if needed for production
-        // Example for production: ['https://yourfrontend.vercel.app', 'http://localhost:5173']
-        callback(null, true)
-    },
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Content-Length', 'Date'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Length', 'Content-Type'],
     credentials: false,
     maxAge: 86400,
     preflightContinue: false,
     optionsSuccessStatus: 200
 }))
-
-// Also add explicit CORS headers as fallback
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    res.header('Access-Control-Allow-Credentials', 'false')
-    
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200)
-    }
-    next()
-})
 
 app.use(express.json())
 
@@ -147,6 +148,23 @@ app.get('/api/debug/env', (req, res) => {
 // Favicon handler - return 204 No Content instead of 500
 app.get('/favicon.ico', (req, res) => {
     res.status(204).end()
+})
+
+// Global error handler - MUST be last middleware, with 4 parameters
+app.use((err, req, res, next) => {
+    console.error('❌ Server Error:', err.message)
+    
+    // Ensure CORS headers are set for error responses
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    
+    const statusCode = err.statusCode || 500
+    res.status(statusCode).json({
+        success: false,
+        error: err.message || 'Internal Server Error',
+        message: err.message || 'An unexpected error occurred'
+    })
 })
 
 // 404 handler - catch undefined routes and return proper 404

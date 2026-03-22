@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 
 const router = express.Router()
 
+// Wrapper to catch async errors
+const asyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next)
+}
+
 // Initialize Supabase client lazily to ensure env vars are loaded
 let supabase = null
 let supabaseError = null
@@ -210,63 +215,55 @@ router.post('/trips', async (req, res) => {
 })
 
 // GET /api/database/user-preferences?userId=user_123
-router.get('/user-preferences', async (req, res) => {
-    try {
-        const { userId } = req.query
-        
-        if (!userId) {
+router.get('/user-preferences', asyncHandler(async (req, res) => {
+    const { userId } = req.query
+    
+    if (!userId) {
+        return res.json({ 
+            success: true, 
+            data: null,
+            message: 'userId parameter required'
+        })
+    }
+    
+    const client = getSupabase()
+    const { data, error } = await client
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+    
+    // PGRST116 = no rows found (not an error, just no data yet)
+    if (error && error.code !== 'PGRST116') {
+        console.error('Database error:', error)
+        // Table may not exist yet - return empty instead of error
+        if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
             return res.json({ 
                 success: true, 
                 data: null,
-                message: 'userId parameter required'
+                message: 'Table not yet initialized'
             })
         }
-        
-        const { data, error } = await getSupabase()
-            .from('user_preferences')
-            .select('*')
-            .eq('user_id', userId)
-            .single()
-        
-        // PGRST116 = no rows found (not an error, just no data yet)
-        if (error && error.code !== 'PGRST116') {
-            console.error('Database error:', error)
-            // Table may not exist yet - return empty instead of error
-            if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
-                return res.json({ 
-                    success: true, 
-                    data: null,
-                    message: 'Table not yet initialized'
-                })
-            }
-            // Log other errors but don't crash
-            console.error('Other error:', error.message)
-            return res.json({ 
-                success: true, 
-                data: null,
-                message: 'Could not fetch preferences'
-            })
-        }
-        
-        // Map database field names back to frontend field names
-        if (data) {
-            data.locationCity = data.current_location
-            data.locationCountry = data.current_country
-            data.locationLat = data.latitude
-            data.locationLon = data.longitude
-            console.log('✅ Returning mapped preferences:', data)
-        }
-        
-        res.json({ success: true, data: data || null })
-    } catch (error) {
-        console.error('Get preferences error:', error?.message)
-        res.json({ 
+        // Log other errors but don't crash
+        console.error('Other error:', error.message)
+        return res.json({ 
             success: true, 
             data: null,
             message: 'Could not fetch preferences'
         })
     }
-})
+    
+    // Map database field names back to frontend field names
+    if (data) {
+        data.locationCity = data.current_location
+        data.locationCountry = data.current_country
+        data.locationLat = data.latitude
+        data.locationLon = data.longitude
+        console.log('✅ Returning mapped preferences:', data)
+    }
+    
+    res.json({ success: true, data: data || null })
+}))
 
 // POST /api/database/user-preferences
 router.post('/user-preferences', async (req, res) => {
