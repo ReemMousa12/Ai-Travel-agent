@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.join(__dirname, '.env') })
 
 // Verify critical environment variables exist
-const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY']
+const requiredEnvVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
 const missingEnvVars = requiredEnvVars.filter(v => !process.env[v])
 
 if (missingEnvVars.length > 0) {
