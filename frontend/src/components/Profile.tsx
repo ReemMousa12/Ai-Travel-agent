@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Home, MapPin, FileText, Save, X } from 'lucide-react';
+import { User, Mail, Home, MapPin, FileText, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { apiClient } from '../lib/api';
 
