@@ -110,30 +110,15 @@ export default function Dashboard({ userId }: DashboardProps) {
       console.log('📦 Preferences loaded:', preferences);
       
       let city = 'London';
-      let locationSet = false;
       
       if (preferences?.locationCity) {
         console.log('✓ Saved location found in user_preferences');
         city = preferences.locationCity;
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
-        locationSet = true;
       } else {
-        console.log('ℹ️ No saved location in user_preferences');
-      }
-      
-      // If no saved preferences, prompt for GPS permission
-      if (!locationSet) {
-        console.log('🟡 No saved location - requesting GPS permission...');
-        console.log('🔍 Showing location permission prompt to user');
+        console.log('ℹ️ No saved location - user needs to set it via button');
+        // Show the prompt so user can click to enable GPS
         setShowLocationPrompt(true);
-        
-        // Also try requesting permission automatically (user will see browser prompt)
-        setTimeout(() => {
-          console.log('⏰ Auto-requesting GPS after delay...');
-          requestLocationPermission();
-        }, 500);
-      } else {
-        console.log('✅ Location already set');
       }
       
       // Load weather for the city (either saved or default London)
@@ -246,22 +231,23 @@ export default function Dashboard({ userId }: DashboardProps) {
           {/* Location Permission Prompt */}
           {showLocationPrompt && (
             <div className="bg-white/20 rounded-lg p-4 mb-4 border border-white/30">
-              <p className="text-sm mb-3 text-white/90">
-                📍 Allow access to your precise location for better travel recommendations?
+              <p className="text-sm mb-3 text-white/90 font-medium">
+                📍 <strong>Enable GPS Location?</strong><br />
+                This helps us show accurate local recommendations.
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={requestLocationPermission}
                   disabled={loading}
-                  className="flex-1 bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-white text-blue-600 px-4 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors disabled:opacity-50"
                 >
-                  {loading ? 'Detecting...' : 'Allow'}
+                  {loading ? '⏳ Detecting...' : '📍 Enable GPS'}
                 </button>
                 <button
                   onClick={() => setShowLocationPrompt(false)}
-                  className="flex-1 bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors"
+                  className="flex-1 bg-white/20 text-white px-4 py-3 rounded-lg font-semibold hover:bg-white/30 transition-colors"
                 >
-                  Skip
+                  Skip for Now
                 </button>
               </div>
             </div>
