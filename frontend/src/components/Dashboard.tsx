@@ -117,6 +117,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         console.log('✓ Saved location found in user_preferences');
         city = preferences.locationCity;
         setLocation(`${preferences.locationCity}, ${preferences.locationCountry}`);
+        setShowLocationPrompt(false); // HIDE banner if location already saved
       } else {
         console.log('ℹ️ No saved location - user needs to set it via button');
         console.log('ℹ️ Setting showLocationPrompt to TRUE');
