@@ -6,6 +6,7 @@ import {
     getMockHotelsAndActivities,
     getLocationBasedRecommendations 
 } from '../services/location.js'
+import { testLocationServices } from '../services/basic.js'
 
 const router = express.Router()
 
@@ -13,14 +14,75 @@ const router = express.Router()
 // Detect user's current location from IP
 router.get('/current', async (req, res) => {
     try {
+        console.log('📍 /api/location/current called');
         const location = await detectUserLocation()
+        console.log('📍 detectUserLocation returned:', location);
         if (!location) {
+            console.warn('⚠️ Location is null, returning error');
             return res.json({ success: false, error: 'Could not detect location', location: null })
         }
+        console.log('✅ Returning location:', location);
         res.json({ success: true, location })
     } catch (error) {
-        console.error('Error detecting location:', error?.message)
+        console.error('❌ Error detecting location:', error?.message)
+        console.error('Stack trace:', error);
         res.json({ success: false, error: 'Could not detect location', location: null })
+    }
+})
+
+// GET /api/location/diagnose
+// Diagnostic endpoint to help debug location detection
+router.get('/diagnose', async (req, res) => {
+    try {
+        console.log('\n🔍 === DIAGNOSTIC ENDPOINT CALLED ===');
+        console.log('Timestamp:', new Date().toISOString());
+        console.log('Client IP from req:', req.ip || req.connection.remoteAddress);
+        console.log('Starting location detection...\n');
+        
+        const location = await detectUserLocation()
+        
+        console.log('🔍 === DIAGNOSTIC RESULT ===');
+        console.log('Location object:', JSON.stringify(location, null, 2));
+        console.log('Detection completed at:', new Date().toISOString());
+        console.log('🔍 === END DIAGNOSTIC ===\n');
+        
+        res.json({ 
+            success: true, 
+            timestamp: new Date().toISOString(),
+            diagnostic: 'Check server logs for detailed detection flow',
+            location: location || null,
+            detected_city: location?.city || 'UNKNOWN',
+            detected_country: location?.country || 'UNKNOWN'
+        })
+    } catch (error) {
+        console.error('❌ Diagnostic error:', error?.message)
+        res.json({ 
+            success: false, 
+            error: error?.message || 'Diagnostic failed',
+            timestamp: new Date().toISOString()
+        })
+    }
+})
+
+// GET /api/location/test-services
+// Test geolocation services directly
+router.get('/test-services', async (req, res) => {
+    try {
+        console.log('\n🧪 === TEST SERVICES ENDPOINT CALLED ===');
+        await testLocationServices()
+        
+        res.json({ 
+            success: true,
+            message: 'Service tests completed - check server logs for output',
+            timestamp: new Date().toISOString()
+        })
+    } catch (error) {
+        console.error('❌ Service test error:', error?.message)
+        res.json({ 
+            success: false,
+            error: error?.message || 'Service test failed',
+            timestamp: new Date().toISOString()
+        })
     }
 })
 

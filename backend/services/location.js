@@ -18,15 +18,18 @@ function getSupabase() {
 // Detect user's current location (using IP geolocation with fallbacks from basic.js)
 export async function detectUserLocation() {
     try {
+        console.log('🌍 detectUserLocation called');
         const locationJSON = await getLocation()
+        console.log('🌍 getLocation returned:', locationJSON);
         const data = JSON.parse(locationJSON)
+        console.log('🌍 Parsed location data:', data);
         
         if (data.error) {
-            console.error('Location detection error:', data.error)
+            console.error('⚠️ Location detection error:', data.error)
             // Return data anyway since it has fallback values
         }
         
-        return {
+        const result = {
             country: data.country_name || data.country || 'Unknown',
             country_code: data.country || 'US',
             city: data.city || 'Unknown',
@@ -34,8 +37,11 @@ export async function detectUserLocation() {
             longitude: data.longitude || 0,
             timezone: data.timezone || ''
         }
+        console.log('✅ Returning location result:', result);
+        return result;
     } catch (error) {
-        console.error('Error detecting location:', error?.message)
+        console.error('❌ Error in detectUserLocation:', error?.message)
+        console.error('Stack:', error);
         return null
     }
 }

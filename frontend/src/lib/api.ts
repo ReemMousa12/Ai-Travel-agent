@@ -122,9 +122,12 @@ class ApiClient {
 
   async getLocation(): Promise<LocationData> {
     try {
+      console.log('📍 [api.ts] Fetching location from:', `${API_BASE_URL}/api/location/current`);
       const response = await fetch(`${API_BASE_URL}/api/location/current`);
+      console.log('📍 [api.ts] Response status:', response.status, response.ok);
+      
       if (!response.ok) {
-        console.warn(`Failed to fetch location: ${response.status}`);
+        console.warn(`❌ [api.ts] Failed to fetch location: ${response.status}`);
         return {
           city: 'London',
           country: 'GB',
@@ -134,15 +137,19 @@ class ApiClient {
         };
       }
       const result = await response.json();
-      return result.location || {
+      console.log('📍 [api.ts] Response data:', result);
+      
+      const location = result.location || {
         city: 'London',
         country: 'GB',
         latitude: 51.5074,
         longitude: -0.1278,
-        error: 'No location data'
+        error: 'No location data in response'
       };
+      console.log('✅ [api.ts] Returning location:', location);
+      return location;
     } catch (error) {
-      console.error('Error fetching location:', error);
+      console.error('❌ [api.ts] Error fetching location:', error);
       return {
         city: 'London',
         country: 'GB',
