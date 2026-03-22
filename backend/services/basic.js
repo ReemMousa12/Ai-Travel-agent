@@ -175,7 +175,7 @@ export async function getLocation() {
         console.error('❌ [basic.js] ALL location services failed!');
         console.error('❌ [basic.js] Final error:', err?.message)
         console.error('❌ [basic.js] Full error:', err);
-        console.log('📍 [basic.js] Using hardcoded fallback: London, GB');
+        console.log('📍 [basic.js] Using fallback location: London, GB');
         return JSON.stringify({ 
             error: `All services failed: ${err?.message}`,
             city: 'London',
