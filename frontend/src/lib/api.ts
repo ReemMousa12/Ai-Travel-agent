@@ -122,71 +122,38 @@ class ApiClient {
 
   async getLocation(): Promise<LocationData> {
     try {
-      // Try browser Geolocation API first (most accurate)
-      if (navigator.geolocation) {
-        return new Promise((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              try {
-                // Reverse geocode coordinates to get city/country
-                const { latitude, longitude } = position.coords
-                console.log('📍 GPS position acquired:', { latitude, longitude, accuracy: position.coords.accuracy });
-                
-                const response = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-                )
-                const data = await response.json()
-                
-                const location: LocationData = {
-                  city: data.address?.city || data.address?.town || 'Your Location',
-                  country: data.address?.country_code?.toUpperCase() || 'EG',
-                  latitude,
-                  longitude,
-                  error: undefined
-                }
-                console.log('✅ Location detected via GPS:', location);
-                resolve(location);
-              } catch (error) {
-                console.warn('Reverse geocoding failed, using IP-based fallback:', error);
-                // Fallback to IP-based if reverse geocoding fails
-                this.fallbackLocationDetection().then(resolve)
-              }
-            },
-            async (error) => {
-              // User denied permission, fall back to IP-based
-              console.warn('❌ Geolocation permission denied:', error.message);
-              const result = await this.fallbackLocationDetection()
-              resolve(result)
-            },
-            { timeout: 5000, enableHighAccuracy: true }
-          )
-        })
+      const response = await fetch(`${API_BASE_URL}/api/location/current`);
+      if (!response.ok) {
+        console.warn(`Failed to fetch location: ${response.status}`);
+        return {
+          city: 'London',
+          country: 'GB',
+          latitude: 51.5074,
+          longitude: -0.1278,
+          error: `HTTP ${response.status}`
+        };
       }
-      
-      // No geolocation support, use IP-based
-      console.log('ℹ️ Browser geolocation not available, using IP-based detection');
-      return this.fallbackLocationDetection()
+      const result = await response.json();
+      return result.location || {
+        city: 'London',
+        country: 'GB',
+        latitude: 51.5074,
+        longitude: -0.1278,
+        error: 'No location data'
+      };
     } catch (error) {
-      console.error('Location error:', error)
-      return this.fallbackLocationDetection()
+      console.error('Error fetching location:', error);
+      return {
+        city: 'London',
+        country: 'GB',
+        latitude: 51.5074,
+        longitude: -0.1278,
+        error: error instanceof Error ? error.message : 'Failed to detect location'
+      };
     }
   }
 
-  private async fallbackLocationDetection(): Promise<LocationData> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/travel/location`)
-      return response.json()
-    } catch (error) {
-      console.error('Fallback location error:', error)
-      return {
-        city: 'Cairo',
-        country: 'EG',
-        latitude: 30.0444,
-        longitude: 31.2357,
-        error: 'Could not detect location'
-      }
-    }
-  }
+  
 
   async getTrendingData(location: string): Promise<TrendingData> {
     const response = await fetch(

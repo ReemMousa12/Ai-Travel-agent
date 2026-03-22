@@ -1,5 +1,6 @@
 // Location Service - Detect user location and fetch nearby destinations
 import { createClient } from '@supabase/supabase-js'
+import { getLocation } from './basic.js'
 
 // Lazy-initialize Supabase client to avoid crashes on module load
 let supabase = null
@@ -14,21 +15,20 @@ function getSupabase() {
     return supabase
 }
 
-// Detect user's current location (using IP geolocation)
+// Detect user's current location (using IP geolocation with fallbacks from basic.js)
 export async function detectUserLocation() {
     try {
-        // Use HTTPS endpoint to avoid browser blocks
-        const response = await fetch('https://ipapi.co/json/')
-        const data = await response.json()
+        const locationJSON = await getLocation()
+        const data = JSON.parse(locationJSON)
         
         if (data.error) {
-            console.error('IP geolocation error:', data.reason)
-            return null
+            console.error('Location detection error:', data.error)
+            // Return data anyway since it has fallback values
         }
         
         return {
-            country: data.country_name || 'Unknown',
-            country_code: data.country_code || 'US',
+            country: data.country_name || data.country || 'Unknown',
+            country_code: data.country || 'US',
             city: data.city || 'Unknown',
             latitude: data.latitude || 0,
             longitude: data.longitude || 0,
