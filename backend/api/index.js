@@ -74,14 +74,7 @@ app.use((req, res, next) => {
 
 app.use(express.json())
 
-// Routes - Import AFTER all middleware
-import chatRoutes from '../routes/chat.js'
-import travelRoutes from '../routes/travel.js'
-import databaseRoutes from '../routes/database.js'
-import locationRoutes from '../routes/location.js'
-import favoritesRoutes from '../routes/favorites.js'
-
-// Root route
+// Root route - MUST come before others to ensure it loads
 app.get('/', (req, res) => {
     res.json({
         name: 'AI Travel Agent Backend API',
@@ -99,7 +92,7 @@ app.get('/', (req, res) => {
     })
 })
 
-// Health check
+// Health check - MUST work even if routes fail
 app.get('/api/health', (req, res) => {
     res.set('Content-Type', 'application/json')
     res.json({ 
@@ -130,41 +123,19 @@ app.get('/api/debug', (req, res) => {
     })
 })
 
-// Register all API routes with error handling
-try {
-    app.use('/api/chat', chatRoutes || ((req, res) => res.status(503).json({ error: 'Chat service not available' })))
-} catch (err) {
-    console.error('❌ Error registering chat routes:', err?.message)
-    app.use('/api/chat', (req, res) => res.status(503).json({ error: 'Chat service error' }))
-}
+// Routes - Import AFTER all middleware
+import chatRoutes from '../routes/chat.js'
+import travelRoutes from '../routes/travel.js'
+import databaseRoutes from '../routes/database.js'
+import locationRoutes from '../routes/location.js'
+import favoritesRoutes from '../routes/favorites.js'
 
-try {
-    app.use('/api/travel', travelRoutes || ((req, res) => res.status(503).json({ error: 'Travel service not available' })))
-} catch (err) {
-    console.error('❌ Error registering travel routes:', err?.message)
-    app.use('/api/travel', (req, res) => res.status(503).json({ error: 'Travel service error' }))
-}
-
-try {
-    app.use('/api/database', databaseRoutes || ((req, res) => res.status(503).json({ error: 'Database service not available' })))
-} catch (err) {
-    console.error('❌ Error registering database routes:', err?.message)
-    app.use('/api/database', (req, res) => res.status(503).json({ error: 'Database service error' }))
-}
-
-try {
-    app.use('/api/location', locationRoutes || ((req, res) => res.status(503).json({ error: 'Location service not available' })))
-} catch (err) {
-    console.error('❌ Error registering location routes:', err?.message)
-    app.use('/api/location', (req, res) => res.status(503).json({ error: 'Location service error' }))
-}
-
-try {
-    app.use('/api/favorites', favoritesRoutes || ((req, res) => res.status(503).json({ error: 'Favorites service not available' })))
-} catch (err) {
-    console.error('❌ Error registering favorites routes:', err?.message)
-    app.use('/api/favorites', (req, res) => res.status(503).json({ error: 'Favorites service error' }))
-}
+// Register all API routes
+app.use('/api/chat', chatRoutes)
+app.use('/api/travel', travelRoutes)
+app.use('/api/database', databaseRoutes)
+app.use('/api/location', locationRoutes)
+app.use('/api/favorites', favoritesRoutes)
 
 // 404 handler - must be last route
 app.use((req, res) => {
