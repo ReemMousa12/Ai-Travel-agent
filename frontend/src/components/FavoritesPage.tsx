@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, MapPin, Star, Trash2, CheckCircle, Clock, Filter } from 'lucide-react';
+import { Heart, Star, Trash2, CheckCircle, Clock, Filter } from 'lucide-react';
 import type { Favorite } from '../lib/api';
 import { apiClient } from '../lib/api';
 import type { User } from '../lib/auth';
@@ -55,7 +55,8 @@ export default function FavoritesPage({ user }: FavoritesPageProps) {
     setFilteredFavorites(filtered);
   }
 
-  async function handleRemove(favoriteId: string) {
+  async function handleRemove(favoriteId: string | undefined) {
+    if (!favoriteId) return;
     try {
       await apiClient.removeFavorite(favoriteId, user.id);
       setFavorites(favorites.filter((fav) => fav.id !== favoriteId));
@@ -64,7 +65,8 @@ export default function FavoritesPage({ user }: FavoritesPageProps) {
     }
   }
 
-  async function handleToggleVisited(favoriteId: string, currentVisited: boolean) {
+  async function handleToggleVisited(favoriteId: string | undefined, currentVisited: boolean) {
+    if (!favoriteId) return;
     try {
       await apiClient.updateFavorite(favoriteId, user.id, { visited: !currentVisited });
       setFavorites(
@@ -165,17 +167,17 @@ export default function FavoritesPage({ user }: FavoritesPageProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredFavorites.map((favorite, index) => (
             <motion.div
-              key={favorite.id}
+              key={favorite.id || index}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               className="rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-2xl transition-shadow"
             >
               {/* Image */}
-              {favorite.imageUrl && (
+              {favorite.image_url && (
                 <div className="relative h-48 bg-gray-200 overflow-hidden">
                   <img
-                    src={favorite.imageUrl}
+                    src={favorite.image_url}
                     alt={favorite.destination}
                     className="w-full h-full object-cover hover:scale-105 transition-transform"
                   />
@@ -208,24 +210,24 @@ export default function FavoritesPage({ user }: FavoritesPageProps) {
                   </p>
                 )}
 
-                {favorite.estimatedCost && (
+                {favorite.price_estimate && (
                   <div className="flex items-center gap-2 text-lg font-semibold text-blue-600 mb-3">
-                    💰 {favorite.estimatedCost}
+                    💰 ${favorite.price_estimate}
                   </div>
                 )}
 
                 {/* Metadata */}
                 <div className="space-y-2 mb-4">
-                  {favorite.savedDate && (
+                  {favorite.created_at && (
                     <div className="text-xs text-gray-500 flex items-center gap-2">
                       <Clock size={14} />
-                      Saved {new Date(favorite.savedDate).toLocaleDateString()}
+                      Saved {new Date(favorite.created_at).toLocaleDateString()}
                     </div>
                   )}
-                  {favorite.visitedDate && (
+                  {favorite.visit_date && (
                     <div className="text-xs text-green-600 flex items-center gap-2">
                       <CheckCircle size={14} />
-                      Visited {new Date(favorite.visitedDate).toLocaleDateString()}
+                      Visited {new Date(favorite.visit_date).toLocaleDateString()}
                     </div>
                   )}
                 </div>
@@ -245,7 +247,7 @@ export default function FavoritesPage({ user }: FavoritesPageProps) {
 
                 {/* Action Button */}
                 <button
-                  onClick={() => handleToggleVisited(favorite.id, favorite.visited)}
+                  onClick={() => handleToggleVisited(favorite.id, favorite.visited ?? false)}
                   className={`w-full py-2 rounded-lg font-medium transition-colors ${
                     favorite.visited
                       ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
