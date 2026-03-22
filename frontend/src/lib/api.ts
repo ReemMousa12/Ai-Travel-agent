@@ -238,6 +238,48 @@ class ApiClient {
     }
   }
 
+  async getUserProfile(userId: string) {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/database/user-profile?userId=${userId}`
+      );
+      if (!response.ok) {
+        console.warn(`Failed to fetch profile: ${response.status}`);
+        return null;
+      }
+      const result = await response.json();
+      return result.data || null;
+    } catch (error) {
+      console.warn('Error fetching profile:', error);
+      return null;
+    }
+  }
+
+  async updateUserProfile(userId: string, updates: {
+    name?: string;
+    bio?: string;
+    homeCity?: string;
+    homeCountry?: string;
+    profileImage?: string;
+  }) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/database/user-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...updates }),
+      });
+      if (!response.ok) {
+        console.warn(`Failed to update profile: ${response.status}`);
+        return null;
+      }
+      const result = await response.json();
+      return result.data || null;
+    } catch (error) {
+      console.warn('Error updating profile:', error);
+      return null;
+    }
+  }
+
   async getSavedTrips(userId: string): Promise<Trip[]> {
     const response = await fetch(`${API_BASE_URL}/api/database/trips?userId=${userId}`);
     const result = await response.json();
