@@ -76,6 +76,7 @@ function getCurrentCoordinates(): Promise<{ latitude: number; longitude: number 
 /**
  * Reverse geocode coordinates to get city and country
  * Routes through backend to avoid CORS issues
+ * Backend uses Nominatim (OpenStreetMap) API which is more reliable
  */
 async function reverseGeocode(latitude: number, longitude: number): Promise<{
   city: string;

@@ -176,6 +176,7 @@ router.get('/explore', async (req, res) => {
 
 // GET /api/location/geocode?latitude=51.5074&longitude=-0.1278
 // Reverse geocode coordinates to city/country (called by frontend to avoid CORS)
+// Uses Nominatim (OpenStreetMap) free API
 router.get('/geocode', async (req, res) => {
     try {
         const { latitude, longitude } = req.query
@@ -192,27 +193,36 @@ router.get('/geocode', async (req, res) => {
         
         console.log('🌍 Backend geocoding request:', { latitude, longitude });
         
-        // Call Open-Meteo API from backend (no CORS issues here)
+        // Call Nominatim (OpenStreetMap) API from backend (no CORS issues here)
+        // Nominatim is more reliable than Open-Meteo for reverse geocoding
         const response = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=en`
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+            {
+                headers: { 
+                    'User-Agent': 'AI-Travel-Agent/1.0',
+                    'Accept-Language': 'en'
+                }
+            }
         )
         
         if (!response.ok) {
-            throw new Error(`Open-Meteo API error: ${response.status}`)
+            throw new Error(`Nominatim API error: ${response.status}`)
         }
         
         const data = await response.json()
-        console.log('🌍 Open-Meteo response:', data);
+        console.log('🌍 Nominatim response:', JSON.stringify(data).substring(0, 200) + '...');
         
-        // Extract city and country from the response
-        const results = data.results?.[0]
-        if (!results) {
-            throw new Error('No geocoding results found')
+        // Extract city and country from Nominatim response
+        const address = data.address
+        if (!address) {
+            throw new Error('No address data found in geocoding response')
         }
         
-        const city = results.city || results.name || 'Unknown'
-        const country = results.country || 'Unknown'
-        const countryCode = results.country_code?.toUpperCase() || 'XX'
+        // Try to get city from different possible fields
+        const city = address.city || address.town || address.village || address.municipality || 'Unknown'
+        // Country in English and country code
+        const country = address.country || 'Unknown'
+        const countryCode = address.country_code?.toUpperCase() || 'XX'
         
         console.log('✅ Backend geocoding successful:', { city, country, countryCode });
         
