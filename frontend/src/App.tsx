@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, MessageSquare, Briefcase, User, LogOut } from 'lucide-react';
+import { Home, MessageSquare, Briefcase, User, LogOut, Heart } from 'lucide-react';
 import { auth } from './lib/auth';
 import type { User as AuthUser } from './lib/auth';
 import { cn } from './lib/utils';
@@ -9,8 +9,9 @@ import Trips from './components/Trips.tsx';
 import LandingPage from './components/LandingPage.tsx';
 import Login from './components/Login';
 import Profile from './components/Profile.tsx';
+import FavoritesPage from './components/FavoritesPage.tsx';
 
-type Tab = 'home' | 'chat' | 'trips' | 'profile';
+type Tab = 'home' | 'chat' | 'trips' | 'favorites' | 'profile';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -46,6 +47,7 @@ function App() {
     { id: 'home' as Tab, label: 'Home', icon: Home },
     { id: 'chat' as Tab, label: 'AI Agent', icon: MessageSquare },
     { id: 'trips' as Tab, label: 'My Trips', icon: Briefcase },
+    { id: 'favorites' as Tab, label: 'Favorites', icon: Heart },
     { id: 'profile' as Tab, label: 'Profile', icon: User },
   ];
 
@@ -118,6 +120,7 @@ function App() {
               >
                 {activeTab === 'chat' && <EnhancedChat user={user} initialMessage={initialChatMessage} />}
                 {activeTab === 'trips' && <Trips user={user} />}
+                {activeTab === 'favorites' && <FavoritesPage user={user} />}
                 {activeTab === 'profile' && <Profile user={user} />}
               </motion.div>
             </AnimatePresence>
