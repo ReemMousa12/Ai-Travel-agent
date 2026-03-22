@@ -35,8 +35,9 @@ router.post('/', async (req, res) => {
     try {
         const { message, userId, messages, model = 'llama-3.3-70b-versatile', sessionId, userName: providedUserName } = req.body
 
-        // Fetch user location preferences
+        // Fetch user location preferences and nearby destinations
         let locationContext = ''
+        let nearbyContext = ''
         let userName = providedUserName || '' // Use provided userName from request
         if (userId) {
             try {
@@ -55,6 +56,27 @@ router.post('/', async (req, res) => {
                         }
                         locationContext = `\n\n${locDetails}. Use this location to provide personalized travel recommendations, nearby attractions, weather, and local information.`;
                         console.log('✅ Location context loaded:', locDetails);
+                        
+                        // Fetch nearby destinations for this country
+                        try {
+                            const { data: nearbyDestinations } = await getSupabase()
+                                .from('nearby_destinations')
+                                .select('*')
+                                .eq('user_country', data.current_country)
+                                .order('popularity_score', { ascending: false })
+                                .limit(5);
+                            
+                            if (nearbyDestinations && nearbyDestinations.length > 0) {
+                                const nearbyList = nearbyDestinations.map(dest => 
+                                    `• ${dest.nearby_country} (${dest.distance_km}km away, ${dest.travel_time_hours}h travel, Popularity: ${dest.popularity_score}/10, Best Season: ${dest.best_season})`
+                                ).join('\n');
+                                
+                                nearbyContext = `\n\nNearby Travel Destinations:\n${nearbyList}\n\nWhen user asks for nearby country suggestions, recommend from this list with details about travel distance, time, and best season.`;
+                                console.log('✅ Nearby destinations loaded:', nearbyDestinations.length, 'countries');
+                            }
+                        } catch (nearbyError) {
+                            console.log('ℹ️ Could not load nearby destinations:', nearbyError?.message);
+                        }
                     }
                     // Only override with database name if no name was provided in request
                     if (!userName && data.user_name) {
@@ -85,12 +107,12 @@ router.post('/', async (req, res) => {
         } else if (message) {
             // Convert single message to messages array
             const systemPrompt = userName 
-                ? `You are a helpful AI travel assistant. The user's name is ${userName}.${locationContext}
+                ? `You are a helpful AI travel assistant. The user's name is ${userName}.${locationContext}${nearbyContext}
 
-Help them plan trips, answer travel questions, and provide personalized recommendations. Use their name naturally in conversation. When asked about their location or nearby places, refer to the location context provided above. Provide relevant information about their area including attractions, weather insights, and travel opportunities.`
-                : `You are a helpful AI travel assistant.${locationContext}
+Help them plan trips, answer travel questions, and provide personalized recommendations. Use their name naturally in conversation. When asked about their location or nearby countries, refer to the context provided above. Provide relevant information about their area including attractions, weather insights, and travel opportunities. When suggesting nearby countries, include details about distance, travel time, and best season to visit.`
+                : `You are a helpful AI travel assistant.${locationContext}${nearbyContext}
 
-Help users plan their trips, answer travel questions, and provide recommendations. When asked about their location, refer to the location context above. If you don't know the user's name yet, politely ask for it in a friendly way during the conversation.`
+Help users plan their trips, answer travel questions, and provide recommendations. When asked about their location or nearby countries, refer to the context provided above. Include details about distance, travel time, and best season to visit. If you don't know the user's name yet, politely ask for it in a friendly way during the conversation.`
             
             chatMessages = [
                 {
