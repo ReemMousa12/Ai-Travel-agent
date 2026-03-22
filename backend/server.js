@@ -28,15 +28,34 @@ import favoritesRoutes from './routes/favorites.js'
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Middleware - Simple CORS Configuration
-// Allow all origins
+// Middleware - CORS Configuration for Vercel and local development
 app.use(cors({
-    origin: '*',
+    origin: function (origin, callback) {
+        // Allow all origins - specify specific origins if needed for production
+        // Example for production: ['https://yourfrontend.vercel.app', 'http://localhost:5173']
+        callback(null, true)
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Length', 'Date'],
     credentials: false,
-    maxAge: 86400
+    maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 200
 }))
+
+// Also add explicit CORS headers as fallback
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD')
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    res.header('Access-Control-Allow-Credentials', 'false')
+    
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200)
+    }
+    next()
+})
 
 app.use(express.json())
 
